@@ -1,0 +1,141 @@
+version: '1.0'
+
+variables:
+  - &clone
+    image: alpine/git
+    pull: true
+
+steps:
+  # Step 1: Check PHP syntax
+  - name: lint
+    image: php:8.3-alpine
+    pull: true
+    commands:
+      - apk add --no-cache bash git
+      - find app routes tests -name "*.php" -print0 | xargs -0 -n1 php -l
+    when:
+      event: [push, pull_request]
+
+  # Step 2: Install composer dependencies
+  - name: composer
+    image: composer:latest
+    pull: true
+    volumes:
+      - /tmp/composer-cache:/tmp/composer-cache
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+    commands:
+      - composer install --no-interaction --no-progress --prefer-dist
+    when:
+      event: [push, pull_request]
+    depends_on:
+      - lint
+
+  # Step 3: Set up environment file
+  - name: setup-env
+    image: alpine:latest
+    pull: true
+    commands:
+      - cp .env.example .env
+      - echo "APP_KEY=" >> .env
+      - echo "DB_HOST=localhost" >> .env
+      - echo "DB_DATABASE=testing" >> .env
+      - echo "DB_USERNAME=root" >> .env
+      - echo "DB_PASSWORD=" >> .env
+    when:
+      event: [push, pull_request]
+    depends_on:
+      - composer
+
+  # Step 4: Generate Laravel application key
+  - name: generate-key
+    image: php:8.3-fpm
+    pull: true
+    environment:
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=:memory:
+    commands:
+      - docker-php-ext-install pdo_sqlite
+      - php artisan key:generate
+    when:
+      event: [push, pull_request]
+    depends_on:
+      - setup-env
+
+  # Step 5: Run unit and feature tests
+  - name: test
+    image: php:8.3-fpm
+    pull: true
+    environment:
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=:memory:
+      - APP_ENV=testing
+    commands:
+      - apk add --no-cache bash git
+      - docker-php-ext-install pdo_sqlite pdo_mysql mbstring exif pcntl bcmath gd zip
+      - php artisan config:clear
+      - php artisan test --coverage
+    when:
+      event: [push, pull_request]
+    depends_on:
+      - generate-key
+
+  # Step 6: Build Docker image (on successful push to main or PR to main)
+  - name: docker-build
+    image: plugins/docker
+    pull: true
+    settings:
+      registry: docker.io
+      repo: ${DRONE_REPO_NAMESPACE}/${DRONE_REPO_NAME}
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:7}
+        - ${CI_COMMIT_REF_NAME}
+      dockerfile: Dockerfile
+      context: .
+      when:
+        branch: main
+        event: [push, pull_request]
+    depends_on:
+      - test
+    when:
+      event: [push, pull_request]
+      branch: main
+
+  # Step 7: Deploy to production (on main branch)
+  - name: deploy
+    image: alpine:latest
+    pull: true
+    environment:
+      - SSH_KEY
+      - DEPLOY_HOST
+      - DEPLOY_USER
+      - DEPLOY_PATH
+    commands:
+      - apk add --no-cache openssh-client bash
+      - mkdir -p ~/.ssh
+      - echo "$SSH_KEY" > ~/.ssh/id_rsa
+      - chmod 600 ~/.ssh/id_rsa
+      - ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts 2>/dev/null
+      - ssh ${DEPLOY_USER}@${DEPLOY_HOST} "cd ${DEPLOY_PATH} && git pull origin main && docker-compose build && docker-compose up -d && docker-compose exec -T app php artisan migrate --force"
+    when:
+      event: push
+      branch: main
+    depends_on:
+      - docker-build
+    secrets:
+      - ssh_key
+      - deploy_host
+      - deploy_user
+      - deploy_path
+
+# Define secrets (configure these in Woodpecker UI or pass at runtime)
+secrets:
+  ssh_key:
+    external: true
+  deploy_host:
+    external: true
+  deploy_user:
+    external: true
+  deploy_path:
+    external: true
