@@ -12,6 +12,7 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 // NPCs
 Route::resource('npcs', NpcController::class);
 Route::post('npcs/{npc}/duplicate', [NpcController::class, 'duplicate'])->name('npcs.duplicate');
+Route::post('npcs/{npc}/move', [NpcController::class, 'move'])->name('npcs.move');
 Route::post('npcs/generate', [NpcController::class, 'generate'])->name('npcs.generate');
 
 // Folders

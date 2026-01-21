@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Folder;
+use App\Models\Npc;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,9 @@ class FolderController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('folders.index', compact('folders'));
+        $rootNpcs = Npc::whereNull('folder_id')->npcs()->get();
+
+        return view('folders.index', compact('folders', 'rootNpcs'));
     }
 
     /**

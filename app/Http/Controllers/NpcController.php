@@ -30,7 +30,11 @@ class NpcController extends Controller
 
         // Folder filter
         if ($request->filled('folder_id')) {
-            $query->where('folder_id', $request->folder_id);
+            if ($request->folder_id === 'root') {
+                $query->whereNull('folder_id');
+            } else {
+                $query->where('folder_id', $request->folder_id);
+            }
         }
 
         // Challenge rating filter
@@ -295,5 +299,23 @@ class NpcController extends Controller
         return redirect()
             ->route('npcs.edit', $npc)
             ->with('success', 'NPC generated! Feel free to customize it.');
+    }
+
+    /**
+     * Move an NPC to a different folder.
+     */
+    public function move(Npc $npc, Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'folder_id' => 'nullable|exists:folders,id',
+        ]);
+
+        $npc->update($validated);
+
+        $folderName = $npc->folder?->name ?? 'Root';
+
+        return redirect()
+            ->back()
+            ->with('success', "NPC moved to '{$folderName}'.");
     }
 }

@@ -20,6 +20,9 @@
         <a href="{{ route('npcs.edit', $npc) }}" class="btn btn-primary">
             <i class="bi bi-pencil"></i> Edit
         </a>
+        <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#moveModal">
+            <i class="bi bi-arrow-left-right"></i> Move
+        </button>
         <form action="{{ route('npcs.duplicate', $npc) }}" method="POST" class="d-inline">
             @csrf
             <button type="submit" class="btn btn-secondary">
@@ -237,4 +240,40 @@ function ordinal($number) {
     return $number . $ends[$number % 10];
 }
 @endphp
+
+<!-- Move Modal -->
+<div class="modal fade" id="moveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Move NPC to Folder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ route('npcs.move', $npc) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="folder_id" class="form-label">Select Folder</label>
+                        <select class="form-select" name="folder_id" id="folder_id">
+                            <option value="">Root (No Folder)</option>
+                            @php
+                                $folders = \App\Models\Folder::orderBy('name')->get();
+                            @endphp
+                            @foreach($folders as $folder)
+                                <option value="{{ $folder->id }}" {{ $npc->folder_id === $folder->id ? 'selected' : '' }}>
+                                    {{ $folder->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Move</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
