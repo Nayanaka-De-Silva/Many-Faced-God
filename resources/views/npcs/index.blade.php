@@ -23,6 +23,9 @@
                     <label class="form-label">Folder</label>
                     <select name="folder_id" class="form-select">
                         <option value="">All Folders</option>
+                        <option value="root" {{ request('folder_id') == 'root' ? 'selected' : '' }}>
+                            Root (Unfoldered)
+                        </option>
                         @foreach($folders as $folder)
                             <option value="{{ $folder->id }}" {{ request('folder_id') == $folder->id ? 'selected' : '' }}>
                                 {{ $folder->name }}

@@ -30,7 +30,11 @@ class NpcController extends Controller
 
         // Folder filter
         if ($request->filled('folder_id')) {
-            $query->where('folder_id', $request->folder_id);
+            if ($request->folder_id === 'root') {
+                $query->whereNull('folder_id');
+            } else {
+                $query->where('folder_id', $request->folder_id);
+            }
         }
 
         // Challenge rating filter
