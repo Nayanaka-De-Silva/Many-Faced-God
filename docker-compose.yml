@@ -19,7 +19,7 @@ services:
     container_name: mfg-webserver
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8765:80"
     volumes:
       - ./:/var/www/html
       - ./docker/nginx/conf.d:/etc/nginx/conf.d
@@ -38,7 +38,7 @@ services:
       MYSQL_PASSWORD: secret
       MYSQL_USER: mfg_user
     ports:
-      - "3306:3306"
+      - "33306:3306"
     volumes:
       - mfg-db-data:/var/lib/mysql
     networks:

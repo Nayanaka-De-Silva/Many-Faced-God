@@ -54,7 +54,7 @@ Many Faced God is a web-based NPC (Non-Player Character) generator and manager f
    docker-compose exec app php artisan db:seed  # Optional: load sample data
    ```
 
-5. Access the application at **http://localhost:8080**
+5. Access the application at **http://localhost:8765**
 
 ### Running Tests
 
@@ -156,6 +156,24 @@ docker-compose exec app php artisan test --coverage
 # Run specific test file
 docker-compose exec app php artisan test tests/Feature/NpcControllerTest.php
 ```
+
+## Deployment
+
+For deployment on external servers using Docker, see [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive instructions including:
+
+- Configuration for production environments
+- SSL/TLS setup with reverse proxy
+- Database backup strategies
+- Scaling with Redis/Memcached
+- Troubleshooting guide
+- Maintenance procedures
+
+Quick summary:
+1. Update `.env` with your domain and credentials
+2. Set `APP_ENV=production` and `APP_DEBUG=false`
+3. Generate a new `APP_KEY`
+4. Run `docker-compose up -d` to deploy
+5. Configure your reverse proxy for SSL (optional but recommended)
 
 ## License
 
