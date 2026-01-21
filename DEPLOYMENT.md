@@ -11,6 +11,24 @@ This guide explains how to deploy the Many Faced God application on an external 
 
 ## Quick Start
 
+### IMPORTANT: Docker Build Process
+
+The Dockerfile automatically installs all Composer dependencies during image build with proper Git configuration.
+This means:
+
+1. ✅ Git is configured to trust the working directory (prevents permission issues)
+2. ✅ Dependencies are installed into the Docker image
+3. ✅ No runtime composer install is needed
+4. ✅ Containers start immediately without dependency resolution
+5. ✅ No "Missing vendor/autoload.php" or "Class not found" errors
+
+**The `docker-compose build` command must be run on the deployment server!**
+
+This ensures:
+- All Laravel/Illuminate packages are available
+- No Git permission errors during Composer operations
+- Consistent behavior across all environments
+
 ### 1. Clone the Repository
 
 ```bash
@@ -18,7 +36,21 @@ git clone <repository-url> many-faced-god
 cd many-faced-god
 ```
 
-### 2. Configure Environment Variables
+### 2. Build the Docker Image (IMPORTANT!)
+
+This step MUST be done on the deployment server to install dependencies:
+
+```bash
+docker-compose build
+```
+
+This will:
+- Copy application files into the image
+- Run `composer install --no-dev --optimize-autoloader`
+- Set up proper file permissions
+- Create the vendor/ directory
+
+### 3. Configure Environment Variables
 
 Copy the example environment file and modify it for your server:
 
@@ -77,7 +109,7 @@ docker-compose exec -T app php artisan db:seed --force
 ### 6. Build and Start Containers
 
 ```bash
-docker-compose build
+docker-compose build      # ← CRITICAL: Installs composer dependencies
 docker-compose up -d
 ```
 
