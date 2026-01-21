@@ -80,7 +80,7 @@ steps:
     depends_on:
       - generate-key
 
-  # Step 6: Build Docker image (on successful push to main)
+  # Step 6: Build Docker image (on successful push to main or PR to main)
   - name: docker-build
     image: plugins/docker
     pull: true
@@ -95,11 +95,11 @@ steps:
       context: .
       when:
         branch: main
-        event: push
+        event: [push, pull_request]
     depends_on:
       - test
     when:
-      event: push
+      event: [push, pull_request]
       branch: main
 
   # Step 7: Deploy to production (on main branch)
