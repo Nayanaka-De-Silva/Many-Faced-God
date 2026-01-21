@@ -296,4 +296,22 @@ class NpcController extends Controller
             ->route('npcs.edit', $npc)
             ->with('success', 'NPC generated! Feel free to customize it.');
     }
+
+    /**
+     * Move an NPC to a different folder.
+     */
+    public function move(Npc $npc, Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'folder_id' => 'nullable|exists:folders,id',
+        ]);
+
+        $npc->update($validated);
+
+        $folderName = $npc->folder?->name ?? 'Root';
+
+        return redirect()
+            ->back()
+            ->with('success', "NPC moved to '{$folderName}'.");
+    }
 }

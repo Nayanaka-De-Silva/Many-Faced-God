@@ -66,14 +66,16 @@
         <div class="row">
             @foreach($npcs as $npc)
                 <div class="col-md-4 col-lg-3 mb-4">
-                    <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none">
-                        <div class="npc-card card h-100">
-                            <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="npc-card card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none" style="flex: 1;">
                                 <span>{{ $npc->name }}</span>
-                                @if($npc->challenge_rating)
-                                    <span class="badge bg-dark">CR {{ $npc->challenge_rating }}</span>
-                                @endif
-                            </div>
+                            </a>
+                            @if($npc->challenge_rating)
+                                <span class="badge bg-dark">CR {{ $npc->challenge_rating }}</span>
+                            @endif
+                        </div>
+                        <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none">
                             <div class="card-body">
                                 <p class="small mb-1 text-muted fst-italic">
                                     {{ $npc->npc_type ?? 'Unknown Type' }}, {{ $npc->alignment ?? 'Unaligned' }}
@@ -132,13 +134,58 @@
                                     </p>
                                 @endif
                             </div>
-                            @if($npc->folder)
-                                <div class="card-footer text-muted small">
-                                    <i class="bi bi-folder"></i> {{ $npc->folder->name }}
+                        </a>
+                        @if($npc->folder)
+                            <div class="card-footer text-muted small d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-folder"></i> {{ $npc->folder->name }}</span>
+                                <button type="button" class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#moveModal{{ $npc->id }}" onclick="event.stopPropagation();">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </button>
+                            </div>
+                        @else
+                            <div class="card-footer text-muted small d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-folder"></i> Root</span>
+                                <button type="button" class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#moveModal{{ $npc->id }}" onclick="event.stopPropagation();">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Move Modal -->
+                    <div class="modal fade" id="moveModal{{ $npc->id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Move "{{ $npc->name }}" to Folder</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                            @endif
+                                <form action="{{ route('npcs.move', $npc) }}" method="POST">
+                                    @csrf
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label for="folder_id_{{ $npc->id }}" class="form-label">Select Folder</label>
+                                            <select class="form-select" name="folder_id" id="folder_id_{{ $npc->id }}">
+                                                <option value="">Root (No Folder)</option>
+                                                @php
+                                                    $folders = \App\Models\Folder::orderBy('name')->get();
+                                                @endphp
+                                                @foreach($folders as $folder)
+                                                    <option value="{{ $folder->id }}" {{ $npc->folder_id === $folder->id ? 'selected' : '' }}>
+                                                        {{ $folder->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-primary">Move</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    </a>
+                    </div>
                 </div>
             @endforeach
         </div>
