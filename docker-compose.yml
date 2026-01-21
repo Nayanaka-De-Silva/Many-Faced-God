@@ -1,0 +1,53 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mfg-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./storage:/var/www/html/storage
+    networks:
+      - mfg-network
+    depends_on:
+      - db
+
+  webserver:
+    image: nginx:alpine
+    container_name: mfg-webserver
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - mfg-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: mfg-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: many_faced_god
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: mfg_user
+    ports:
+      - "3306:3306"
+    volumes:
+      - mfg-db-data:/var/lib/mysql
+    networks:
+      - mfg-network
+
+networks:
+  mfg-network:
+    driver: bridge
+
+volumes:
+  mfg-db-data:
+    driver: local
