@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\Folder;
 use App\Models\Npc;
+use App\Models\Folder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class NpcFactory extends Factory
@@ -19,7 +19,7 @@ class NpcFactory extends Factory
             'armor_class' => fake()->numberBetween(10, 20),
             'armor_type' => fake()->optional()->randomElement(['leather armor', 'chain mail', 'plate', 'natural armor']),
             'hit_points' => fake()->numberBetween(10, 100),
-            'hit_dice' => fake()->numberBetween(1, 10).'d8+'.fake()->numberBetween(0, 20),
+            'hit_dice' => fake()->numberBetween(1, 10) . 'd8+' . fake()->numberBetween(0, 20),
             'speed' => '30 ft.',
             'strength' => fake()->numberBetween(8, 20),
             'dexterity' => fake()->numberBetween(8, 20),

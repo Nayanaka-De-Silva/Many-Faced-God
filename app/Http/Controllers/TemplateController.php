@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Npc;
+use App\Models\Folder;
 use Illuminate\View\View;
 
 class TemplateController extends Controller
@@ -25,12 +26,12 @@ class TemplateController extends Controller
      */
     public function show(Npc $template): View
     {
-        if (! $template->is_template) {
+        if (!$template->is_template) {
             abort(404);
         }
 
         $template->load(['folder', 'traits', 'actions', 'spellcasting']);
-
+        
         return view('templates.show', compact('template'));
     }
 }

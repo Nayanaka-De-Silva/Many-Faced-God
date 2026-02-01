@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Npc;
+use App\Models\NpcTrait;
+use App\Models\NpcAction;
 
 class NpcGenerator
 {
@@ -112,7 +114,7 @@ class NpcGenerator
     private function generateAttributes(string $cr): array
     {
         $baseStats = $this->crToBaseStats($cr);
-
+        
         return [
             'strength' => $this->randomStat($baseStats),
             'dexterity' => $this->randomStat($baseStats),
@@ -165,7 +167,6 @@ class NpcGenerator
         $modifier = $numDice * $conMod;
 
         $sign = $modifier >= 0 ? '+' : '';
-
         return "{$numDice}d{$diceSize}{$sign}{$modifier}";
     }
 
@@ -192,7 +193,7 @@ class NpcGenerator
         } elseif ($numericCr < 5) {
             return collect(['studded leather', 'chain shirt', 'scale mail', 'natural armor'])->random();
         }
-
+        
         return collect(['chain mail', 'plate', 'natural armor', 'half plate'])->random();
     }
 
@@ -204,11 +205,11 @@ class NpcGenerator
         $baseSpeed = str_contains(strtolower($npcType), 'small') ? 25 : 30;
         
         $speeds = ["{$baseSpeed} ft."];
-
+        
         if (str_contains(strtolower($npcType), 'beast') && rand(0, 1)) {
-            $speeds[] = 'climb '.$baseSpeed.' ft.';
+            $speeds[] = 'climb ' . $baseSpeed . ' ft.';
         }
-
+        
         return implode(', ', $speeds);
     }
 
@@ -218,7 +219,7 @@ class NpcGenerator
     private function generateName(string $npcType): string
     {
         $type = strtolower($npcType);
-
+        
         if (str_contains($type, 'humanoid')) {
             return collect(self::NAMES['humanoid'])->random();
         } elseif (str_contains($type, 'beast')) {
@@ -227,7 +228,7 @@ class NpcGenerator
             return collect(self::NAMES['undead'])->random();
         }
         
-        return 'Creature '.rand(1, 999);
+        return 'Creature ' . rand(1, 999);
     }
 
     /**
@@ -261,7 +262,7 @@ class NpcGenerator
     {
         $abilities = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
         $numProficiencies = rand(0, 2);
-
+        
         return collect($abilities)->random($numProficiencies)->toArray();
     }
 
@@ -272,7 +273,7 @@ class NpcGenerator
     {
         $skills = array_keys(Npc::SKILLS);
         $numSkills = rand(1, 4);
-
+        
         return collect($skills)->random($numSkills)->toArray();
     }
 
@@ -282,7 +283,7 @@ class NpcGenerator
     private function randomSenses(string $npcType): array
     {
         $senses = [];
-
+        
         if (rand(0, 1)) {
             $senses[] = ['type' => 'Darkvision', 'range' => rand(1, 3) * 30];
         }
@@ -295,12 +296,12 @@ class NpcGenerator
      */
     private function randomLanguages(string $npcType): array
     {
-        if (! str_contains(strtolower($npcType), 'humanoid')) {
+        if (!str_contains(strtolower($npcType), 'humanoid')) {
             return [];
         }
         
         $languages = ['Common'];
-
+        
         $extraLanguages = ['Elvish', 'Dwarvish', 'Orcish', 'Goblin', 'Draconic', 'Abyssal', 'Infernal'];
         if (rand(0, 1)) {
             $languages[] = collect($extraLanguages)->random();
@@ -316,8 +317,8 @@ class NpcGenerator
     {
         $strMod = Npc::formatModifier($npc->strength_modifier + $proficiencyBonus);
         $dexMod = Npc::formatModifier($npc->dexterity_modifier + $proficiencyBonus);
-
-        $damage = max(1, (int) ($this->crToNumeric($npc->challenge_rating ?? '1'))).'d6';
+        
+        $damage = max(1, (int) ($this->crToNumeric($npc->challenge_rating ?? '1'))) . 'd6';
 
         // Add a melee attack
         $npc->actions()->create([

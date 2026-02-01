@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Folder;
 use App\Models\Npc;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
+use App\Models\Folder;
+use App\Models\NpcTrait;
+use App\Models\NpcAction;
+use App\Models\NpcSpellcasting;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 
 class NpcController extends Controller
 {
@@ -123,28 +126,28 @@ class NpcController extends Controller
         ]);
 
         // Roll hit points if hit dice provided but no HP
-        if (empty($validated['hit_points']) && ! empty($validated['hit_dice'])) {
+        if (empty($validated['hit_points']) && !empty($validated['hit_dice'])) {
             $validated['hit_points'] = Npc::rollHitPoints($validated['hit_dice']);
         }
 
         $npc = Npc::create($validated);
 
         // Create traits
-        if (! empty($validated['traits'])) {
+        if (!empty($validated['traits'])) {
             foreach ($validated['traits'] as $trait) {
                 $npc->traits()->create($trait);
             }
         }
 
         // Create actions
-        if (! empty($validated['actions'])) {
+        if (!empty($validated['actions'])) {
             foreach ($validated['actions'] as $action) {
                 $npc->actions()->create($action);
             }
         }
 
         // Create spellcasting
-        if ($request->boolean('has_spellcasting') && ! empty($validated['spellcasting'])) {
+        if ($request->boolean('has_spellcasting') && !empty($validated['spellcasting'])) {
             $npc->spellcasting()->create($validated['spellcasting']);
         }
 
@@ -159,7 +162,7 @@ class NpcController extends Controller
     public function show(Npc $npc): View
     {
         $npc->load(['folder', 'traits', 'actions', 'spellcasting']);
-
+        
         return view('npcs.show', compact('npc'));
     }
 
@@ -170,7 +173,7 @@ class NpcController extends Controller
     {
         $npc->load(['traits', 'actions', 'spellcasting']);
         $folders = Folder::orderBy('name')->get();
-
+        
         return view('npcs.edit', compact('npc', 'folders'));
     }
 
@@ -231,7 +234,7 @@ class NpcController extends Controller
 
         // Sync traits
         $npc->traits()->delete();
-        if (! empty($validated['traits'])) {
+        if (!empty($validated['traits'])) {
             foreach ($validated['traits'] as $trait) {
                 $npc->traits()->create($trait);
             }
@@ -239,7 +242,7 @@ class NpcController extends Controller
 
         // Sync actions
         $npc->actions()->delete();
-        if (! empty($validated['actions'])) {
+        if (!empty($validated['actions'])) {
             foreach ($validated['actions'] as $action) {
                 $npc->actions()->create($action);
             }
@@ -247,7 +250,7 @@ class NpcController extends Controller
 
         // Sync spellcasting
         $npc->spellcasting()->delete();
-        if ($request->boolean('has_spellcasting') && ! empty($validated['spellcasting'])) {
+        if ($request->boolean('has_spellcasting') && !empty($validated['spellcasting'])) {
             $npc->spellcasting()->create($validated['spellcasting']);
         }
 

@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\Npc;
 use App\Models\NpcTrait;
+use App\Models\Npc;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class NpcTraitFactory extends Factory

@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use App\Models\Folder;
 use App\Models\Npc;
+use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use App\Models\NpcSpellcasting;
-use App\Models\NpcTrait;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
