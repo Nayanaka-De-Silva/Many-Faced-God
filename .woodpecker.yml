@@ -1,6 +1,6 @@
 variables:
   - &php_image "php:8.2-cli"
-  - &node_version "20"
+  - &node_image "node:20"
 
 when:
   - event: [push, pull_request, manual]
@@ -20,7 +20,7 @@ steps:
       - php artisan key:generate
 
   install-node-dependencies:
-    image: node:${node_version}
+    image: *node_image
     depends_on:
       - install-php-dependencies
     commands:
