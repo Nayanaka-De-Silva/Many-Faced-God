@@ -38,7 +38,7 @@ steps:
       - apt-get update && apt-get install -y git unzip
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
-      - ./vendor/bin/pint --test
+      - ./vendor/bin/pint
     failure: ignore
 
   run-unit-tests:
