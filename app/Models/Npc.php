@@ -239,7 +239,7 @@ class Npc extends Model
     {
         $proficiencyBonus = $this->proficiency_bonus ?? 2;
         $skills = $this->skill_proficiencies ?? [];
-        
+
         $bonus = in_array('Perception', $skills) ? $proficiencyBonus : 0;
         
         return 10 + $this->wisdom_modifier + $bonus;

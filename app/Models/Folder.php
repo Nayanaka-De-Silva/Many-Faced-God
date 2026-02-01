@@ -56,7 +56,7 @@ class Folder extends Model
     {
         $breadcrumb = [];
         $folder = $this;
-        
+
         while ($folder) {
             array_unshift($breadcrumb, $folder);
             $folder = $folder->parent;

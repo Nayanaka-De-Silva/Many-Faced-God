@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Npc;
 use App\Models\Folder;
-use App\Models\NpcTrait;
+use App\Models\Npc;
 use App\Models\NpcAction;
+use App\Models\NpcTrait;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

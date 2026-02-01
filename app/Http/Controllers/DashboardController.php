@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Npc;
 use App\Models\Folder;
+use App\Models\Npc;
 use Illuminate\View\View;
 
 class DashboardController extends Controller

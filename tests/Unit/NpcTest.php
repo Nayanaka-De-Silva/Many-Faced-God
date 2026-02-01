@@ -65,7 +65,7 @@ class NpcTest extends TestCase
             'Deception', 'History', 'Insight', 'Intimidation',
             'Investigation', 'Medicine', 'Nature', 'Perception',
             'Performance', 'Persuasion', 'Religion', 'Sleight of Hand',
-            'Stealth', 'Survival'
+            'Stealth', 'Survival',
         ];
 
         foreach ($expectedSkills as $skill) {

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Npc;
 use App\Models\Folder;
+use App\Models\Npc;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

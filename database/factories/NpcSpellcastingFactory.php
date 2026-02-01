@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\NpcSpellcasting;
 use App\Models\Npc;
+use App\Models\NpcSpellcasting;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class NpcSpellcastingFactory extends Factory

@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\NpcAction;
 use App\Models\Npc;
+use App\Models\NpcAction;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class NpcActionFactory extends Factory

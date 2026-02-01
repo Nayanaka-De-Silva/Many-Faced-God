@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Services\NpcGenerator;
 use App\Models\Npc;
+use App\Services\NpcGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
