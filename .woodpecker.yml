@@ -24,7 +24,7 @@ steps:
     depends_on:
       - install-php-dependencies
     commands:
-      - npm ci
+      - npm install
       - npm run build
 
   # ===========================================
