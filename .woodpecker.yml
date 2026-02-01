@@ -1,4 +1,4 @@
-steps:
+pipeline:
   test:
     image: alpine
     commands:
