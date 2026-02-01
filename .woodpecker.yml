@@ -38,6 +38,8 @@ steps:
       - apt-get update && apt-get install -y git unzip
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
+      - cp .env.example .env || true
+      - php artisan key:generate --force || true
       - ./vendor/bin/pint
     failure: ignore
 
@@ -51,7 +53,7 @@ steps:
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
       - cp .env.example .env
-      - php artisan key:generate
+      - php artisan key:generate --force
       - php artisan config:clear
       - php artisan test --testsuite=Unit --stop-on-failure
 
@@ -65,7 +67,7 @@ steps:
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
       - cp .env.example .env
-      - php artisan key:generate
+      - php artisan key:generate --force
       - php artisan config:clear
       - php artisan test --testsuite=Feature --stop-on-failure
 
