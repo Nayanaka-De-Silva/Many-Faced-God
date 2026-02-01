@@ -3,3 +3,4 @@ steps:
     image: alpine
     commands:
       - echo "Woodpecker is alive"
+      - echo "And we're in business!"
