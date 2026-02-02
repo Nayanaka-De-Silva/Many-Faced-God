@@ -1,10 +1,4 @@
-when:
-  event: [push, pull_request, manual]
-
-steps:
-  # =========================
-  # TESTS (All events)
-  # =========================
+pipeline:
   test:
     image: php:8.3-cli
     commands:
@@ -16,9 +10,6 @@ steps:
       - php artisan key:generate
       - php artisan test
 
-  # =========================
-  # CLEANUP (PR only)
-  # =========================
   cleanup-pr:
     image: php:8.3-cli
     commands:
@@ -27,11 +18,8 @@ steps:
       - rm -rf .env
       - echo "Cleanup completed"
     when:
-      event: [pull_request]
+      event: pull_request
 
-  # =========================
-  # BUILD IMAGE (Push to main/master only)
-  # =========================
   build-image:
     image: woodpeckerci/plugin-docker-buildx:4.2.0
     settings:
@@ -41,17 +29,10 @@ steps:
         - ${CI_COMMIT_SHA}
       dockerfile: Dockerfile
       platforms: linux/amd64
-      logins:
-        - registry: localhost
-      build_args:
-        - BUILDKIT_INLINE_CACHE=1
     when:
       event: [push, manual]
       branch: [main, master]
 
-  # =========================
-  # DEPLOY (Push to main/master only)
-  # =========================
   deploy:
     image: docker/compose:2.24.5
     privileged: true
