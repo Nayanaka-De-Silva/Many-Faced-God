@@ -1,94 +1,40 @@
-variables:
-  - &php_image "php:8.2-cli"
-  - &node_image "node:20"
-
 when:
-  - event: [push, pull_request, manual]
+  branch: [main]
+  event: [push, tag]
 
 steps:
-  # ===========================================
-  # BUILD STAGE
-  # ===========================================
-  install-php-dependencies:
-    image: *php_image
+  # =========================
+  # TESTS
+  # =========================
+  test:
+    image: php:8.3-cli
     commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev
-      - docker-php-ext-install pdo pdo_mysql zip gd mbstring xml bcmath
+      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3
+      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist --optimize-autoloader
+      - composer install
       - cp .env.example .env
       - php artisan key:generate
+      - php artisan test
 
-  install-node-dependencies:
-    image: *node_image
-    depends_on:
-      - install-php-dependencies
+  # =========================
+  # BUILD IMAGE
+  # =========================
+  build-image:
+    image: docker:26
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - npm install
-      - npm run build
+      - docker build -t mfg-app:latest .
+      - docker tag mfg-app:latest mfg-app:${CI_COMMIT_SHA}
 
-  # ===========================================
-  # TEST STAGE
-  # ===========================================
-  lint-php:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
+  # =========================
+  # DEPLOY
+  # =========================
+  deploy:
+    image: docker:26
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - apt-get update && apt-get install -y git unzip
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env || true
-      - php artisan key:generate --force || true
-      - ./vendor/bin/pint
-    failure: ignore
-
-  run-unit-tests:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
-    commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3 libsqlite3-dev
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env
-      - php artisan key:generate --force
-      - php artisan config:clear
-      - php artisan test --testsuite=Unit --stop-on-failure
-
-  run-feature-tests:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
-    commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3 libsqlite3-dev
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env
-      - php artisan key:generate --force
-      - php artisan config:clear
-      - php artisan test --testsuite=Feature --stop-on-failure
-
-  # ===========================================
-  # TEARDOWN STAGE
-  # ===========================================
-  cleanup:
-    image: *php_image
-    depends_on:
-      - lint-php
-      - run-unit-tests
-      - run-feature-tests
-    when:
-      - status: [success, failure]
-    commands:
-      - echo "Pipeline completed - performing cleanup"
-      - php artisan config:clear || true
-      - php artisan cache:clear || true
-      - php artisan route:clear || true
-      - php artisan view:clear || true
-      - rm -rf node_modules || true
-      - rm -rf vendor || true
-      - rm -f .env || true
-      - echo "Cleanup completed successfully"
+      - cd /srv/mfg-app
+      - docker compose -f docker-compose.prod.yml up -d --force-recreate
