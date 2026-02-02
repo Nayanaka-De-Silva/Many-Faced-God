@@ -25,8 +25,8 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - docker build -t mfg-app:latest .
-      - docker tag mfg-app:latest mfg-app:${CI_COMMIT_SHA}
+      - docker build -t many-faced-god-app:latest .
+      - docker tag many-faced-god-app:latest many-faced-god-app:${CI_COMMIT_SHA}
 
   # =========================
   # DEPLOY
@@ -36,5 +36,5 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - cd /srv/mfg-app
+      - cd /srv/many-faced-god-app
       - docker compose -f docker-compose.prod.yml up -d --force-recreate
