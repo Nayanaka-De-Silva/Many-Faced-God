@@ -1,9 +1,9 @@
 when:
-  event: [push, tag, pull_request, manual]
+  event: [push, pull_request, manual]
 
 steps:
   # =========================
-  # TESTS
+  # TESTS (All events)
   # =========================
   test:
     image: php:8.3-cli
@@ -11,13 +11,26 @@ steps:
       - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3
       - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install
+      - composer install --no-interaction --prefer-dist
       - cp .env.example .env
       - php artisan key:generate
       - php artisan test
 
   # =========================
-  # BUILD IMAGE
+  # CLEANUP (PR only)
+  # =========================
+  cleanup-pr:
+    image: php:8.3-cli
+    commands:
+      - echo "Tests completed for PR. Cleaning up..."
+      - rm -rf vendor/
+      - rm -rf .env
+      - echo "Cleanup completed"
+    when:
+      event: [pull_request]
+
+  # =========================
+  # BUILD IMAGE (Push to main/master only)
   # =========================
   build-image:
     image: woodpeckerci/plugin-docker-buildx:4.2.0
@@ -27,30 +40,27 @@ steps:
         - latest
         - ${CI_COMMIT_SHA}
       dockerfile: Dockerfile
-      registry: localhost
-      dry_run: false
+      platforms: linux/amd64
+      logins:
+        - registry: localhost
+      build_args:
+        - BUILDKIT_INLINE_CACHE=1
     when:
-      event: [push, tag, manual]
+      event: [push, manual]
       branch: [main, master]
 
   # =========================
-  # DEPLOY
+  # DEPLOY (Push to main/master only)
   # =========================
   deploy:
-    image: appleboy/drone-ssh:1.7.6
-    settings:
-      host:
-        from_secret: deploy_host
-      username:
-        from_secret: deploy_user
-      key:
-        from_secret: deploy_ssh_key
-      port: 22
-      script:
-        - cd /srv/many-faced-god-app
-        - git pull origin main
-        - docker compose -f docker-compose.prod.yml pull
-        - docker compose -f docker-compose.prod.yml up -d --force-recreate
+    image: docker/compose:2.24.5
+    privileged: true
+    commands:
+      - cd /srv/many-faced-god-app || cd ${CI_WORKSPACE}
+      - docker compose -f docker-compose.prod.yml pull app || true
+      - docker compose -f docker-compose.prod.yml up -d --force-recreate app
+      - docker image prune -f
+      - echo "Deployment completed successfully"
     when:
-      event: [push, tag, manual]
+      event: [push, manual]
       branch: [main, master]
