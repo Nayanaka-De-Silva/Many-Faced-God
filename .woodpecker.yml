@@ -20,20 +20,37 @@ steps:
   # BUILD IMAGE
   # =========================
   build-image:
-    image: docker:26
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    commands:
-      - docker build -t many-faced-god-app:latest .
-      - docker tag many-faced-god-app:latest many-faced-god-app:${CI_COMMIT_SHA}
+    image: woodpeckerci/plugin-docker-buildx:4.2.0
+    settings:
+      repo: many-faced-god-app
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA}
+      dockerfile: Dockerfile
+      registry: localhost
+      dry_run: false
+    when:
+      event: [push, tag, manual]
+      branch: [main, master]
 
   # =========================
   # DEPLOY
   # =========================
   deploy:
-    image: docker:26
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    commands:
-      - cd /srv/many-faced-god-app
-      - docker compose -f docker-compose.prod.yml up -d --force-recreate
+    image: appleboy/drone-ssh:1.7.6
+    settings:
+      host:
+        from_secret: deploy_host
+      username:
+        from_secret: deploy_user
+      key:
+        from_secret: deploy_ssh_key
+      port: 22
+      script:
+        - cd /srv/many-faced-god-app
+        - git pull origin main
+        - docker compose -f docker-compose.prod.yml pull
+        - docker compose -f docker-compose.prod.yml up -d --force-recreate
+    when:
+      event: [push, tag, manual]
+      branch: [main, master]
