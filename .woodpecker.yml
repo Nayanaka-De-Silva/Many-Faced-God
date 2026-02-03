@@ -8,8 +8,8 @@ steps:
   - name: test
     image: php:8.3-cli
     commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
+      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libsqlite3-dev sqlite3
+      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring bcmath
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
       - cp .env.example .env
