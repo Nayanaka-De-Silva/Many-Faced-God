@@ -29,16 +29,13 @@ RUN git config --global --add safe.directory /var/www/html
 # Copy application files
 COPY . /var/www/html/
 
-# Install PHP dependencies (before changing ownership)
-RUN composer install --no-interaction --no-dev --optimize-autoloader
-
-# Generate Laravel application key (if not already set)
-RUN if [ ! -f .env ]; then cp .env.example .env; fi
+# Install PHP dependencies
+RUN composer install --no-interaction --optimize-autoloader
 
 # Set permissions (do this last, after all composer operations)
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
 
 EXPOSE 9000
 CMD ["php-fpm"]

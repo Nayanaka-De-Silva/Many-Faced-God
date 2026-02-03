@@ -1,94 +1,66 @@
-variables:
-  - &php_image "php:8.2-cli"
-  - &node_image "node:20"
-
 when:
-  - event: [push, pull_request, manual]
+  event: [push, pull_request, manual]
 
 steps:
-  # ===========================================
-  # BUILD STAGE
-  # ===========================================
-  install-php-dependencies:
-    image: *php_image
+  # =========================
+  # TESTS (All events)
+  # =========================
+  - name: test
+    image: php:8.3-cli
     commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev
-      - docker-php-ext-install pdo pdo_mysql zip gd mbstring xml bcmath
+      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libsqlite3-dev sqlite3
+      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring bcmath
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist --optimize-autoloader
+      - composer install --no-interaction --prefer-dist
       - cp .env.example .env
       - php artisan key:generate
+      - php artisan test
 
-  install-node-dependencies:
-    image: *node_image
-    depends_on:
-      - install-php-dependencies
+  # =========================
+  # CLEANUP (PR only)
+  # =========================
+  - name: cleanup-pr
+    image: php:8.3-cli
     commands:
-      - npm install
-      - npm run build
-
-  # ===========================================
-  # TEST STAGE
-  # ===========================================
-  lint-php:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
-    commands:
-      - apt-get update && apt-get install -y git unzip
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env || true
-      - php artisan key:generate --force || true
-      - ./vendor/bin/pint
-    failure: ignore
-
-  run-unit-tests:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
-    commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3 libsqlite3-dev
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env
-      - php artisan key:generate --force
-      - php artisan config:clear
-      - php artisan test --testsuite=Unit --stop-on-failure
-
-  run-feature-tests:
-    image: *php_image
-    depends_on:
-      - install-node-dependencies
-    commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev sqlite3 libsqlite3-dev
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring xml bcmath
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-      - composer install --no-interaction --prefer-dist
-      - cp .env.example .env
-      - php artisan key:generate --force
-      - php artisan config:clear
-      - php artisan test --testsuite=Feature --stop-on-failure
-
-  # ===========================================
-  # TEARDOWN STAGE
-  # ===========================================
-  cleanup:
-    image: *php_image
-    depends_on:
-      - lint-php
-      - run-unit-tests
-      - run-feature-tests
+      - echo "Tests completed for PR. Cleaning up..."
+      - rm -rf vendor/
+      - rm -rf .env
+      - echo "Cleanup completed"
     when:
-      - status: [success, failure]
+      - event: pull_request
+
+  # =========================
+  # BUILD IMAGE (Push to main/master only)
+  # =========================
+  - name: build-image
+    image: woodpeckerci/plugin-docker-buildx:4.2.0
+    settings:
+      repo: many-faced-god-app
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA}
+      dockerfile: Dockerfile
+      platforms: linux/amd64
+      logins:
+        - registry: localhost
+      build_args:
+        - BUILDKIT_INLINE_CACHE=1
+    when:
+      - event: [push, manual]
+        branch: [main, master]
+
+  # =========================
+  # DEPLOY (Push to main/master only)
+  # =========================
+  - name: deploy
+    image: docker/compose:2.24.5
+    privileged: true
     commands:
-      - echo "Pipeline completed - performing cleanup"
-      - php artisan config:clear || true
-      - php artisan cache:clear || true
-      - php artisan route:clear || true
-      - php artisan view:clear || true
-      - rm -rf node_modules || true
-      - rm -rf vendor || true
-      - rm -f .env || true
-      - echo "Cleanup completed successfully"
+      - cd /srv/many-faced-god-app || cd ${CI_WORKSPACE}
+      - docker compose -f docker-compose.prod.yml pull app || true
+      - docker compose -f docker-compose.prod.yml up -d --force-recreate app
+      - docker image prune -f
+      - echo "Deployment completed successfully"
+    when:
+      - event: [push, manual]
+        branch: [main, master]
