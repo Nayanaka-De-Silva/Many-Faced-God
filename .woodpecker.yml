@@ -1,5 +1,5 @@
 when:
-  branch: [main]
+  branch: [master]
   event: [push, manual]
 
 steps:
@@ -7,7 +7,7 @@ steps:
   # TESTS (All events)
   # =========================
   - name: test
-    image: php:8.3-cli
+    image: mfg-ci
     commands:
       - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libsqlite3-dev sqlite3
       - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring bcmath
