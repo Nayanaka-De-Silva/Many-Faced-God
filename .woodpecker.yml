@@ -1,5 +1,6 @@
 when:
-  event: [push, pull_request, manual]
+  branch: [main]
+  event: [push, manual]
 
 steps:
   # =========================
@@ -17,50 +18,29 @@ steps:
       - php artisan test
 
   # =========================
-  # CLEANUP (PR only)
-  # =========================
-  - name: cleanup-pr
-    image: php:8.3-cli
-    commands:
-      - echo "Tests completed for PR. Cleaning up..."
-      - rm -rf vendor/
-      - rm -rf .env
-      - echo "Cleanup completed"
-    when:
-      - event: pull_request
-
-  # =========================
   # BUILD IMAGE (Push to main/master only)
   # =========================
   - name: build-image
-    image: woodpeckerci/plugin-docker-buildx:4.2.0
-    settings:
-      repo: many-faced-god-app
-      tags:
-        - latest
-        - ${CI_COMMIT_SHA}
-      dockerfile: Dockerfile
-      platforms: linux/amd64
-      logins:
-        - registry: localhost
-      build_args:
-        - BUILDKIT_INLINE_CACHE=1
-    when:
-      - event: [push, manual]
-        branch: [main, master]
+    image: docker:24
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # when:
+      # - event: [push, manual]
+        # branch: [main, master]
 
   # =========================
   # DEPLOY (Push to main/master only)
   # =========================
   - name: deploy
-    image: docker/compose:2.24.5
+    image: docker:24
     privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - cd /srv/many-faced-god-app || cd ${CI_WORKSPACE}
-      - docker compose -f docker-compose.prod.yml pull app || true
-      - docker compose -f docker-compose.prod.yml up -d --force-recreate app
+      - docker compose -f /home/krystler/containers/many-faced-god/docker-compose.prod.yml up -d
       - docker image prune -f
       - echo "Deployment completed successfully"
-    when:
-      - event: [push, manual]
-        branch: [main, master]
+    # when:
+      # - event: [push, manual]
+        # branch: [main, master]
