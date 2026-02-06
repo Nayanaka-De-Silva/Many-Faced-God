@@ -1,6 +1,6 @@
 when:
-  branch: [master]
-  event: [push, manual]
+  branch: [main]
+  event: [push, pull_request, manual]
 
 steps:
   # =========================
