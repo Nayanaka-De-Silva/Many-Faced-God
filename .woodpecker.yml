@@ -1,6 +1,3 @@
-when:
-  event: [push, pull_request, manual]
-
 steps:
   # =========================
   # TESTS (All events)
@@ -8,13 +5,14 @@ steps:
   - name: test
     image: mfg-ci
     commands:
-      - apt-get update && apt-get install -y git unzip libzip-dev libpng-dev libonig-dev libxml2-dev libsqlite3-dev sqlite3
-      - docker-php-ext-install pdo pdo_mysql pdo_sqlite zip gd mbstring bcmath
-      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
       - composer install --no-interaction --prefer-dist
       - cp .env.example .env
       - php artisan key:generate
       - php artisan test
+    when:
+      event:
+        - push
+        - pull_request
 
   # =========================
   # BUILD IMAGE (Push to main/master only)
@@ -24,6 +22,11 @@ steps:
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    commands:
+      - docker build -t many-faced-god-app:latest .
+    when:
+      event: pull_request_closed
+      branch: master
 
   # =========================
   # DEPLOY (Push to main/master only)
@@ -37,3 +40,6 @@ steps:
       - docker compose -f /home/krystler/containers/many-faced-god/docker-compose.prod.yml up -d
       - docker image prune -f
       - echo "Deployment completed successfully"
+    when:
+      event: pull_request_closed
+      branch: master
