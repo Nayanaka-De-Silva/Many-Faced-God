@@ -1,5 +1,4 @@
 when:
-  branch: [master]
   event: [push, pull_request, manual]
 
 steps:
