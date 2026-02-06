@@ -25,9 +25,6 @@ steps:
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    # when:
-      # - event: [push, manual]
-        # branch: [main, master]
 
   # =========================
   # DEPLOY (Push to main/master only)
@@ -41,6 +38,3 @@ steps:
       - docker compose -f /home/krystler/containers/many-faced-god/docker-compose.prod.yml up -d
       - docker image prune -f
       - echo "Deployment completed successfully"
-    # when:
-      # - event: [push, manual]
-        # branch: [main, master]
