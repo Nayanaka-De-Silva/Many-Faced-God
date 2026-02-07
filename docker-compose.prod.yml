@@ -1,0 +1,42 @@
+services:
+  app:
+    image: many-faced-god-app:latest
+    container_name: many-faced-god-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+      - many-faced-god-network
+    depends_on:
+      - db
+
+  webserver:
+    image: nginx:alpine
+    container_name: many-faced-god-webserver
+    restart: unless-stopped
+    ports:
+      - "8765:80"
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - many-faced-god-network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:8.0
+    container_name: many-faced-god-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - many-faced-god-db-data:/var/lib/mysql
+    networks:
+      - many-faced-god-network
+
+networks:
+  many-faced-god-network:
+    external: true
+
+volumes:
+  many-faced-god-db-data:
