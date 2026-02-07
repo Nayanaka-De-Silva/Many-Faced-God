@@ -10,7 +10,7 @@ steps:
       - php artisan key:generate
       - php artisan test
     when:
-      event: [push, pull_request]
+      - event: [push, pull_request]
 
   # =========================
   # BUILD IMAGE (Push to main/master only)
@@ -23,8 +23,8 @@ steps:
     commands:
       - docker build -t many-faced-god-app:latest .
     when:
-      event: pull_request_closed
-      branch: master
+      - event: pull_request_closed
+        branch: master
 
   # =========================
   # DEPLOY (Push to main/master only)
@@ -39,5 +39,6 @@ steps:
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
-      event: pull_request_closed
-      branch: master
+      - event: pull_request_closed
+        branch: master
+
