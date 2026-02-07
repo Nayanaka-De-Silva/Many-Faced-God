@@ -10,7 +10,9 @@ steps:
       - php artisan key:generate
       - php artisan test
     when:
-      event: [push, pull_request]
+      event:
+        - push
+        - pull_request
 
   # =========================
   # BUILD IMAGE (Push to main/master only)
