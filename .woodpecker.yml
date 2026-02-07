@@ -23,7 +23,7 @@ steps:
     commands:
       - docker build -t many-faced-god-app:latest .
     when:
-      - event: pull_request_closed
+      - event: push
         branch: master
 
   # =========================
@@ -39,6 +39,6 @@ steps:
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
-      - event: pull_request_closed
+      - event: push
         branch: master
 
