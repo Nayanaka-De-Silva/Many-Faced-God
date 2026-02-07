@@ -16,7 +16,7 @@ steps:
   # BUILD IMAGE (Push to main/master only)
   # =========================
   - name: build-image
-    image: docker:24
+    image: docker:27
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -30,7 +30,7 @@ steps:
   # DEPLOY (Push to main/master only)
   # =========================
   - name: deploy
-    image: docker:24
+    image: docker:27
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
