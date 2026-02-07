@@ -35,7 +35,7 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - docker compose -f /home/krystler/containers/many-faced-god/docker-compose.prod.yml up -d
+      - docker compose -f docker-compose.prod.yml up -d
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
