@@ -9,9 +9,6 @@ steps:
       - cp .env.example .env
       - php artisan key:generate
       - php artisan test
-    when:
-      event:
-        - push
 
   # =========================
   # BUILD IMAGE (Push to main/master only)
