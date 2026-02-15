@@ -10,6 +10,12 @@ services:
       - db
     volumes:
       - app-code:/var/www/html
+    healthcheck:
+      test: ["CMD-SHELL", "php -r \"if (empty(getenv('APP_KEY')) || !str_starts_with(getenv('APP_KEY'), 'base64:')) exit(1);\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   webserver:
     image: nginx:alpine
