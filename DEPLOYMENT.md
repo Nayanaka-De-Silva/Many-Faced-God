@@ -82,38 +82,13 @@ SESSION_DOMAIN=yourdomain.com  # Your domain
 LOG_LEVEL=info             # Use 'info' or higher in production
 ```
 
-### 3. Generate Application Key ⚠️ CRITICAL
+### 3. Generate Application Key
 
-**IMPORTANT**: The application WILL NOT work without a valid APP_KEY!
-
-Laravel requires a 32-byte (256-bit) encryption key for AES-256-CBC cipher. Generate it with:
+Generate a fresh application key:
 
 ```bash
-docker-compose exec -T app php artisan key:generate --no-ansi
+docker-compose exec -T app php artisan key:generate
 ```
-
-**What is APP_KEY?**
-- Required for all encryption operations (sessions, cookies, tokens, encrypted fields)
-- Must be exactly 32 bytes for AES-256-CBC cipher
-- Automatically prefixed with `base64:` when generated
-- Format: `APP_KEY=base64:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=`
-- Should NEVER be shared or committed to version control
-
-**Validation:**
-
-Verify the key is set correctly:
-
-```bash
-# Check APP_KEY exists
-grep "^APP_KEY=" .env
-
-# Verify it's loaded in the application
-docker-compose exec -T app php artisan tinker --execute="echo 'Key: ' . config('app.key');"
-```
-
-Expected output: `base64:` followed by 44 characters (not empty!)
-
-**Note**: If using automated CI/CD (like Woodpecker), the pipeline will automatically generate the APP_KEY if missing.
 
 ### 4. Run Database Migrations
 
@@ -293,64 +268,6 @@ docker-compose exec db mysqldump -u mfg_user -p many_faced_god > backup.sql
 
 ## Troubleshooting
 
-### Encryption Error: "Unsupported cipher or incorrect key length"
-
-**Symptom**: Application shows 500 error with "Unsupported cipher or incorrect key length" in logs.
-
-**Cause**: Missing or improperly formatted APP_KEY in production `.env` file.
-
-**Solution**:
-
-```bash
-# 1. Check if APP_KEY exists
-grep "^APP_KEY=" .env
-
-# 2. Generate a new key
-docker-compose run --rm app php artisan key:generate --show --no-ansi > /tmp/newkey.txt
-NEW_KEY=$(cat /tmp/newkey.txt | tr -d '\n\r')
-
-# 3. Update .env on host
-sed -i "s|^APP_KEY=.*|APP_KEY=$NEW_KEY|" .env
-
-# 4. Copy into container (if using named volumes)
-docker cp .env $(docker-compose ps -q app):/var/www/html/.env
-
-# 5. Clear config cache and restart
-docker-compose exec app php artisan config:clear
-docker-compose restart app
-
-# 6. Verify
-docker-compose exec app php artisan tinker --execute="echo 'Key: ' . config('app.key');"
-```
-
-**Common Issues:**
-- ❌ Empty `APP_KEY=` in `.env`
-- ❌ Missing `base64:` prefix
-- ❌ ANSI color codes in key (use `--no-ansi` flag)
-- ❌ Key not copied into app container when using named volumes
-
-**Prevention**: The CI/CD pipeline now automatically validates and generates APP_KEY if missing.
-
-### Cache Configuration Error: "Database file at path does not exist"
-
-**Symptom**: Cache operations fail with SQLite database errors.
-
-**Solution**: Update cache driver in `.env`:
-
-```bash
-# Update to file-based cache
-sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
-sed -i 's/^CACHE_DRIVER=.*/CACHE_DRIVER=file/' .env
-
-# Ensure cache directories exist
-docker-compose exec app mkdir -p storage/framework/cache/data
-docker-compose exec app chown -R www-data:www-data storage/framework
-docker-compose exec app chmod -R 775 storage/framework
-
-# Restart
-docker-compose restart app
-```
-
 ### Application not accessible
 
 1. Check containers are running: `docker-compose ps`
@@ -382,71 +299,6 @@ docker-compose exec -T app php artisan view:clear
 ```
 
 ## Maintenance
-
-### APP_KEY Rotation (When Needed)
-
-**When to rotate:**
-- Security breach or suspected key exposure
-- Moving from development to production
-- Compliance requirements
-
-**IMPORTANT**: Rotating APP_KEY will invalidate:
-- All encrypted session data (users will be logged out)
-- All encrypted database fields
-- All signed/encrypted cookies
-- Password reset tokens
-
-**Rotation Procedure**:
-
-```bash
-# 1. Back up current key
-grep "^APP_KEY=" .env > .env.key.backup
-
-# 2. Generate new key
-docker-compose run --rm app php artisan key:generate --show --no-ansi
-
-# 3. Update .env with new key
-# (Copy the generated key and update manually)
-
-# 4. If you have encrypted database fields, decrypt with old key first
-# APP_KEY=<old-key> php artisan migrate:decrypt
-# APP_KEY=<new-key> php artisan migrate:encrypt
-
-# 5. Copy .env into container and restart
-docker cp .env $(docker-compose ps -q app):/var/www/html/.env
-docker-compose exec app php artisan config:clear
-docker-compose restart app
-
-# 6. Verify
-docker-compose exec app php artisan tinker --execute="echo config('app.key');"
-```
-
-**Post-Rotation Checklist**:
-- [ ] All users are logged out (expected)
-- [ ] New sessions work correctly
-- [ ] Encrypted fields are accessible
-- [ ] No encryption errors in logs
-
-### Verification Commands
-
-After any deployment or maintenance, run these commands to verify everything is working:
-
-```bash
-# 1. Check APP_KEY is set and properly formatted
-docker-compose exec app php artisan tinker --execute="echo 'Key: ' . config('app.key');"
-
-# 2. Verify cipher configuration
-docker-compose exec app php artisan tinker --execute="echo 'Cipher: ' . config('app.cipher');"
-
-# 3. Test encryption works
-docker-compose exec app php artisan tinker --execute="echo encrypt('test');"
-
-# 4. Check container health
-docker-compose ps
-
-# 5. View recent logs for errors
-docker-compose logs app --tail=50 | grep -i error
-```
 
 ### Update Application
 
