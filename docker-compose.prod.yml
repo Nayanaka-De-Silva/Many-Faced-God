@@ -15,7 +15,7 @@ services:
     ports:
       - "8765:80"
     volumes:
-      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/:ro
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
     networks:
       - many-faced-god-network
     depends_on:
