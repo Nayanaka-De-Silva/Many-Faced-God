@@ -43,3 +43,4 @@ networks:
 
 volumes:
   many-faced-god-db-data:
+  app-code:
