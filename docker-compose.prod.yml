@@ -1,7 +1,6 @@
 services:
   app:
     image: many-faced-god-app:latest
-    container_name: many-faced-god-app
     restart: unless-stopped
     env_file:
       - .env
@@ -12,12 +11,14 @@ services:
 
   webserver:
     image: nginx:alpine
-    container_name: many-faced-god-webserver
     restart: unless-stopped
     ports:
       - "8765:80"
     volumes:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker/nginx/certs:/etc/nginx/certs
+    volumes_from:
+      - app
     networks:
       - many-faced-god-network
     depends_on:
@@ -25,7 +26,6 @@ services:
 
   db:
     image: mysql:8.0
-    container_name: many-faced-god-db
     restart: unless-stopped
     env_file:
       - .env
