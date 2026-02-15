@@ -38,8 +38,7 @@ steps:
       - /home/krystler/containers/many-faced-god:/deploy
     commands:
       - cd /deploy
-      - docker compose -f ./docker-compose.prod.yml down
-      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d
+      - docker compose -f ./docker-compose.prod.yml down && docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
