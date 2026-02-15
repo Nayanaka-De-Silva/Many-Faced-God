@@ -8,8 +8,6 @@ services:
       - many-faced-god-network
     depends_on:
       - db
-    volumes:
-      - app-code:/var/www/html
 
   webserver:
     image: nginx:alpine
@@ -17,11 +15,7 @@ services:
     ports:
       - "8765:80"
     volumes:
-      - app-code:/var/www/html
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d
-      - ./docker/nginx/certs:/etc/nginx/certs
-    volumes_from:
-      - app
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/:ro
     networks:
       - many-faced-god-network
     depends_on:
@@ -43,4 +37,3 @@ networks:
 
 volumes:
   many-faced-god-db-data:
-  app-code:
