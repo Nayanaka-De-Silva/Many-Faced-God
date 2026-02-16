@@ -22,6 +22,8 @@ steps:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
       - docker build -t many-faced-god-app:latest .
+      - echo "Building nginx images"
+      - docker build -t many-faced-god-nginx:latest .
       - echo "Build completed successfully"
     when:
       - event: push
@@ -39,7 +41,7 @@ steps:
     commands:
       - cd /deploy
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml down --remove-orphans
-      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d
+      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
