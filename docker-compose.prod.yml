@@ -1,3 +1,5 @@
+name: many-faced-god
+
 services:
   app:
     image: many-faced-god-app:latest
@@ -10,7 +12,9 @@ services:
       - db
 
   webserver:
-    image: nginx:alpine
+    build:
+      context: ./docker/nginx
+    image: many-faced-god-nginx:latest
     restart: unless-stopped
     ports:
       - "8765:80"
