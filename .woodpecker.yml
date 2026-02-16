@@ -21,6 +21,7 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
+      - echo "Starting build..."
       - docker build -t many-faced-god-app:latest .
       - echo "Building nginx images"
       - docker build -t many-faced-god-nginx:latest .
