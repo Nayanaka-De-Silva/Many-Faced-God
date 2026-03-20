@@ -74,6 +74,13 @@
 
                     <p><strong>Challenge</strong> {{ $template->challenge_rating ?? '0' }}</p>
 
+                    @if($template->notes)
+                        <hr class="dnd-divider">
+
+                        <h5 class="text-danger mt-4">Notes</h5>
+                        <p class="npc-notes-content">{{ $template->notes }}</p>
+                    @endif
+
                     @if($template->traits->count() > 0)
                         <h5 class="text-danger mt-4">Traits</h5>
                         @foreach($template->traits as $trait)

@@ -126,6 +126,64 @@ class NpcControllerTest extends TestCase
         $this->assertDatabaseHas('npc_actions', ['name' => 'Longsword']);
     }
 
+    public function test_store_creates_npc_with_notes_and_character_notes(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'NPC With Notes',
+            'notes' => 'Keeps a ledger of every favor owed.',
+            'personality_traits' => 'Speaks in clipped, measured sentences.',
+            'ideals' => 'Debts should always be repaid.',
+            'bonds' => 'Protects the city archives.',
+            'flaws' => 'Cannot resist prying into secrets.',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('npcs', [
+            'name' => 'NPC With Notes',
+            'notes' => 'Keeps a ledger of every favor owed.',
+            'personality_traits' => 'Speaks in clipped, measured sentences.',
+            'ideals' => 'Debts should always be repaid.',
+            'bonds' => 'Protects the city archives.',
+            'flaws' => 'Cannot resist prying into secrets.',
+        ]);
+    }
+
+    public function test_store_template_clears_character_note_fields(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'Template With Notes',
+            'is_template' => '1',
+            'notes' => 'Use for calculating customs tolls.',
+            'personality_traits' => 'Should not persist',
+            'ideals' => 'Should not persist',
+            'bonds' => 'Should not persist',
+            'flaws' => 'Should not persist',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('npcs', [
+            'name' => 'Template With Notes',
+            'is_template' => true,
+            'notes' => 'Use for calculating customs tolls.',
+            'personality_traits' => null,
+            'ideals' => null,
+            'bonds' => null,
+            'flaws' => null,
+        ]);
+    }
+
     public function test_store_validates_required_fields(): void
     {
         $response = $this->post(route('npcs.store'), []);
@@ -162,6 +220,32 @@ class NpcControllerTest extends TestCase
         $response->assertSee('Display NPC');
     }
 
+    public function test_show_displays_notes_and_character_notes(): void
+    {
+        $npc = Npc::factory()->create([
+            'name' => 'Detailed NPC',
+            'notes' => 'Once served in the northern watch.',
+            'personality_traits' => 'Never breaks eye contact.',
+            'ideals' => 'Duty above comfort.',
+            'bonds' => 'His missing captain.',
+            'flaws' => 'Suspicious of everyone new.',
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSee('Notes');
+        $response->assertSee('Once served in the northern watch.');
+        $response->assertSee('Personality Traits');
+        $response->assertSee('Never breaks eye contact.');
+        $response->assertSee('Ideals');
+        $response->assertSee('Duty above comfort.');
+        $response->assertSee('Bonds');
+        $response->assertSee('His missing captain.');
+        $response->assertSee('Flaws');
+        $response->assertSee('Suspicious of everyone new.');
+    }
+
     public function test_edit_displays_form(): void
     {
         $npc = Npc::factory()->create(['name' => 'Edit NPC']);
@@ -188,6 +272,36 @@ class NpcControllerTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseHas('npcs', ['id' => $npc->id, 'name' => 'New Name']);
+    }
+
+    public function test_update_persists_note_fields(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Archivist']);
+
+        $response = $this->put(route('npcs.update', $npc), [
+            'name' => 'Archivist',
+            'notes' => 'Remembers every visitor by voice.',
+            'personality_traits' => 'Collects names obsessively.',
+            'ideals' => 'Knowledge should outlive empires.',
+            'bonds' => 'The sealed royal archive.',
+            'flaws' => 'Cannot let a mystery rest.',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('npcs', [
+            'id' => $npc->id,
+            'notes' => 'Remembers every visitor by voice.',
+            'personality_traits' => 'Collects names obsessively.',
+            'ideals' => 'Knowledge should outlive empires.',
+            'bonds' => 'The sealed royal archive.',
+            'flaws' => 'Cannot let a mystery rest.',
+        ]);
     }
 
     public function test_destroy_deletes_npc(): void
@@ -218,5 +332,19 @@ class NpcControllerTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseCount('npcs', 1);
+    }
+
+    public function test_index_shows_notes_preview_without_later_sentences(): void
+    {
+        Npc::factory()->create([
+            'name' => 'Preview NPC',
+            'notes' => 'First note sentence. Second note sentence. Third note sentence.',
+        ]);
+
+        $response = $this->get(route('npcs.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('First note sentence. Second note sentence.');
+        $response->assertDontSee('Third note sentence.');
     }
 }

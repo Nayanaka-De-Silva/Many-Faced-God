@@ -313,6 +313,8 @@ docker-compose exec -T app php artisan migrate --force
 docker-compose restart app webserver
 ```
 
+If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step also runs `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force` after the updated containers come up so additive schema changes are applied before the new application code serves traffic.
+
 ### View Logs
 
 ```bash

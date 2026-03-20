@@ -84,6 +84,21 @@ class FolderControllerTest extends TestCase
         $response->assertSee('Folder NPC');
     }
 
+    public function test_show_displays_notes_preview_for_npcs_in_folder(): void
+    {
+        $folder = Folder::factory()->create();
+        Npc::factory()->inFolder($folder)->create([
+            'name' => 'Folder Preview NPC',
+            'notes' => 'First folder sentence. Second folder sentence. Third folder sentence.',
+        ]);
+
+        $response = $this->get(route('folders.show', $folder));
+
+        $response->assertStatus(200);
+        $response->assertSee('First folder sentence. Second folder sentence.');
+        $response->assertDontSee('Third folder sentence.');
+    }
+
     public function test_edit_displays_form(): void
     {
         $folder = Folder::factory()->create(['name' => 'Edit Folder']);

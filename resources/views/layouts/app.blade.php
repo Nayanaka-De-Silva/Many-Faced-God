@@ -162,6 +162,17 @@
             color: #888;
         }
 
+        .npc-notes-preview {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            overflow: hidden;
+        }
+
+        .npc-notes-content {
+            white-space: pre-line;
+        }
+
         /* Divider */
         .dnd-divider {
             border: none;

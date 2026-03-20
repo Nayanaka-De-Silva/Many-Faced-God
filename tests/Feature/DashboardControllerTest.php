@@ -45,4 +45,18 @@ class DashboardControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Recent NPC');
     }
+
+    public function test_dashboard_shows_recent_npc_notes_preview(): void
+    {
+        Npc::factory()->create([
+            'name' => 'Preview NPC',
+            'notes' => 'First recent sentence. Second recent sentence. Third recent sentence.',
+        ]);
+
+        $response = $this->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('First recent sentence. Second recent sentence.');
+        $response->assertDontSee('Third recent sentence.');
+    }
 }

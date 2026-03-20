@@ -51,7 +51,7 @@
     <!-- NPC Form -->
     <form action="{{ route('npcs.store') }}" method="POST" id="npcForm">
         @csrf
-        @include('npcs._form', ['npc' => $sourceNpc])
+        @include('npcs._form', ['npc' => $sourceNpc, 'defaultIsTemplate' => $defaultIsTemplate])
         
         <div class="d-flex gap-2 mt-4">
             <button type="submit" class="btn btn-danger btn-lg">

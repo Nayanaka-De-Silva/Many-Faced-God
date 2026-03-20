@@ -6,7 +6,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1><i class="bi bi-file-earmark-text"></i> NPC Templates</h1>
-        <a href="{{ route('npcs.create') }}" class="btn btn-danger">
+        <a href="{{ route('npcs.create', ['is_template' => 1]) }}" class="btn btn-danger">
             <i class="bi bi-plus-circle"></i> Create Template
         </a>
     </div>
@@ -66,8 +66,8 @@
             <i class="bi bi-file-earmark-text" style="font-size: 4rem; color: #ccc;"></i>
             <h3 class="mt-3">No Templates Yet</h3>
             <p class="text-muted">Create an NPC and check "Save as Template" to add it here.</p>
-            <a href="{{ route('npcs.create') }}" class="btn btn-danger btn-lg">
-                <i class="bi bi-plus-circle"></i> Create NPC
+            <a href="{{ route('npcs.create', ['is_template' => 1]) }}" class="btn btn-danger btn-lg">
+                <i class="bi bi-plus-circle"></i> Create Template
             </a>
         </div>
     @endif

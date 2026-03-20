@@ -134,6 +134,40 @@
                     <!-- Challenge Rating -->
                     <p><strong>Challenge</strong> {{ $npc->challenge_rating ?? '0' }} ({{ $npc->proficiency_bonus ? '+' . $npc->proficiency_bonus : '+2' }} Proficiency Bonus)</p>
 
+                    @if($npc->notes || $npc->hasCharacterNotes())
+                        <hr class="dnd-divider">
+
+                        <h5 class="text-danger">Notes</h5>
+
+                        @if($npc->notes)
+                            <p class="npc-notes-content">{{ $npc->notes }}</p>
+                        @endif
+
+                        @if($npc->hasCharacterNotes())
+                            <dl class="row mb-0">
+                                @if($npc->personality_traits)
+                                    <dt class="col-sm-3">Personality Traits</dt>
+                                    <dd class="col-sm-9 npc-notes-content">{{ $npc->personality_traits }}</dd>
+                                @endif
+
+                                @if($npc->ideals)
+                                    <dt class="col-sm-3">Ideals</dt>
+                                    <dd class="col-sm-9 npc-notes-content">{{ $npc->ideals }}</dd>
+                                @endif
+
+                                @if($npc->bonds)
+                                    <dt class="col-sm-3">Bonds</dt>
+                                    <dd class="col-sm-9 npc-notes-content">{{ $npc->bonds }}</dd>
+                                @endif
+
+                                @if($npc->flaws)
+                                    <dt class="col-sm-3">Flaws</dt>
+                                    <dd class="col-sm-9 npc-notes-content">{{ $npc->flaws }}</dd>
+                                @endif
+                            </dl>
+                        @endif
+                    @endif
+
                     <hr class="dnd-divider">
 
                     <!-- Traits -->
@@ -164,7 +198,7 @@
                                 @foreach($npc->spellcasting->spells as $level => $spells)
                                     @if(is_array($spells) && count($spells) > 0)
                                         <li>
-                                            <strong>{{ $level == 0 ? 'Cantrips (at will)' : ordinal($level) . ' level' }}:</strong>
+                                            <strong>{{ $level == 0 ? 'Cantrips (at will)' : $ordinal($level) . ' level' }}:</strong>
                                             <em>{{ implode(', ', $spells) }}</em>
                                         </li>
                                     @endif
@@ -232,13 +266,15 @@
 </div>
 
 @php
-function ordinal($number) {
-    $ends = ['th','st','nd','rd','th','th','th','th','th','th'];
-    if (($number % 100) >= 11 && ($number % 100) <= 13) {
-        return $number . 'th';
-    }
-    return $number . $ends[$number % 10];
-}
+    $ordinal = function ($number) {
+        $ends = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'];
+
+        if (($number % 100) >= 11 && ($number % 100) <= 13) {
+            return $number . 'th';
+        }
+
+        return $number . $ends[$number % 10];
+    };
 @endphp
 
 <!-- Move Modal -->

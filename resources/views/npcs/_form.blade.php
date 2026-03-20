@@ -1,5 +1,7 @@
 @php
     $npc = $npc ?? null;
+    $defaultIsTemplate = $defaultIsTemplate ?? null;
+    $isTemplate = old('is_template', $defaultIsTemplate ?? $npc?->is_template);
 @endphp
 
 @if ($errors->any())
@@ -56,8 +58,48 @@
                 <div class="form-check mt-4">
                     <input type="hidden" name="is_template" value="0">
                     <input type="checkbox" name="is_template" id="is_template" class="form-check-input" value="1"
-                        {{ old('is_template', $npc?->is_template) ? 'checked' : '' }}>
+                        {{ $isTemplate ? 'checked' : '' }}>
                     <label for="is_template" class="form-check-label">Save as Template</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes -->
+<div class="card mb-4">
+    <div class="card-header bg-dark text-warning">
+        <i class="bi bi-journal-text"></i> Notes
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <label for="notes" class="form-label">General Notes</label>
+            <textarea name="notes" id="notes" class="form-control" rows="4"
+                placeholder="Add general DM notes for this NPC or template.">{{ old('notes', $npc?->notes) }}</textarea>
+            <small class="text-muted">Templates can store general notes. Character notes below are NPC-only.</small>
+        </div>
+
+        <div id="characterNotesSection" style="{{ $isTemplate ? 'display:none;' : '' }}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="personality_traits" class="form-label">Personality Traits</label>
+                    <textarea name="personality_traits" id="personality_traits" class="form-control" rows="3"
+                        placeholder="Distinctive mannerisms, quirks, or habits.">{{ old('personality_traits', $npc?->personality_traits) }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="ideals" class="form-label">Ideals</label>
+                    <textarea name="ideals" id="ideals" class="form-control" rows="3"
+                        placeholder="Core beliefs or principles.">{{ old('ideals', $npc?->ideals) }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="bonds" class="form-label">Bonds</label>
+                    <textarea name="bonds" id="bonds" class="form-control" rows="3"
+                        placeholder="People, places, or causes this NPC cares about.">{{ old('bonds', $npc?->bonds) }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label for="flaws" class="form-label">Flaws</label>
+                    <textarea name="flaws" id="flaws" class="form-control" rows="3"
+                        placeholder="Weaknesses, vices, or blind spots.">{{ old('flaws', $npc?->flaws) }}</textarea>
                 </div>
             </div>
         </div>
@@ -399,6 +441,13 @@
     let actionIndex = {{ count($actions) }};
     let senseIndex = {{ count($senses ?: [1]) }};
 
+    function toggleCharacterNotesSection() {
+        const isTemplateCheckbox = document.getElementById('is_template');
+        const characterNotesSection = document.getElementById('characterNotesSection');
+
+        characterNotesSection.style.display = isTemplateCheckbox.checked ? 'none' : '';
+    }
+
     // Add Trait
     document.getElementById('addTrait').addEventListener('click', function() {
         const container = document.getElementById('traitsContainer');
@@ -493,6 +542,9 @@
     document.getElementById('has_spellcasting').addEventListener('change', function() {
         document.getElementById('spellcastingSection').style.display = this.checked ? '' : 'none';
     });
+
+    document.getElementById('is_template').addEventListener('change', toggleCharacterNotesSection);
+    toggleCharacterNotesSection();
 
     // Process languages before submit
     document.getElementById('npcForm').addEventListener('submit', function() {

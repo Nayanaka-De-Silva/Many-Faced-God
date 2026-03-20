@@ -94,6 +94,25 @@ class NpcModelTest extends TestCase
         $this->assertCount(1, $clone->actions);
     }
 
+    public function test_npc_duplicate_copies_note_fields(): void
+    {
+        $npc = Npc::factory()->create([
+            'notes' => 'Tracks party debt.',
+            'personality_traits' => 'Always taps the table before speaking.',
+            'ideals' => 'Order must be preserved.',
+            'bonds' => 'Her guild apprentice.',
+            'flaws' => 'Overconfident when pressured.',
+        ]);
+
+        $clone = $npc->duplicate();
+
+        $this->assertEquals('Tracks party debt.', $clone->notes);
+        $this->assertEquals('Always taps the table before speaking.', $clone->personality_traits);
+        $this->assertEquals('Order must be preserved.', $clone->ideals);
+        $this->assertEquals('Her guild apprentice.', $clone->bonds);
+        $this->assertEquals('Overconfident when pressured.', $clone->flaws);
+    }
+
     public function test_npc_templates_scope(): void
     {
         Npc::factory()->count(2)->create(['is_template' => false]);

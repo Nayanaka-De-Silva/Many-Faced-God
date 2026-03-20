@@ -76,12 +76,17 @@
                                 <p class="card-text small mb-1">
                                     <strong>{{ $npc->npc_type ?? 'Unknown Type' }}</strong>
                                 </p>
-                                <p class="card-text small mb-0">
+                                <p class="card-text small mb-1">
                                     {{ $npc->alignment ?? 'Unaligned' }}
                                     @if($npc->challenge_rating)
                                         • CR {{ $npc->challenge_rating }}
                                     @endif
                                 </p>
+                                @if($npc->notePreview())
+                                    <p class="card-text small text-muted npc-notes-preview mb-0">
+                                        {{ $npc->notePreview(120) }}
+                                    </p>
+                                @endif
                             </div>
                         </div>
                     </a>

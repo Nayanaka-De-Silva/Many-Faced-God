@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Npc extends Model
 {
@@ -16,6 +17,11 @@ class Npc extends Model
         'name',
         'npc_type',
         'alignment',
+        'notes',
+        'personality_traits',
+        'ideals',
+        'bonds',
+        'flaws',
         'armor_class',
         'armor_type',
         'hit_points',
@@ -293,6 +299,32 @@ class Npc extends Model
         }
 
         return $clone;
+    }
+
+    /**
+     * Get a compact preview of notes for card-style displays.
+     */
+    public function notePreview(int $limit = 160): ?string
+    {
+        if (blank($this->notes)) {
+            return null;
+        }
+
+        $notes = Str::squish($this->notes);
+        preg_match('/^(.+?[.!?](?:\s+.+?[.!?])?)/u', $notes, $matches);
+
+        return Str::limit($matches[1] ?? $notes, $limit);
+    }
+
+    /**
+     * Determine whether the NPC has any character note fields populated.
+     */
+    public function hasCharacterNotes(): bool
+    {
+        return filled($this->personality_traits)
+            || filled($this->ideals)
+            || filled($this->bonds)
+            || filled($this->flaws);
     }
 
     /**

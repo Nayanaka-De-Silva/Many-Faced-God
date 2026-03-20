@@ -83,6 +83,10 @@
                                 <p class="small mb-1 text-muted fst-italic">
                                     {{ $npc->npc_type ?? 'Unknown Type' }}, {{ $npc->alignment ?? 'Unaligned' }}
                                 </p>
+
+                                @if($npc->notePreview())
+                                    <p class="small text-muted npc-notes-preview mb-2">{{ $npc->notePreview() }}</p>
+                                @endif
                                 
                                 <div class="stat-block">
                                     <div class="stat">
