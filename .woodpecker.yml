@@ -42,6 +42,31 @@ steps:
       - cd /deploy
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml down --remove-orphans
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans
+      - |
+        db_container=$(docker compose -p many-faced-god -f ./docker-compose.prod.yml ps -q db)
+        if [ -z "$db_container" ]; then
+          echo "Database container not found"
+          docker compose -p many-faced-god -f ./docker-compose.prod.yml ps
+          exit 1
+        fi
+
+        attempts=0
+        max_attempts=30
+        status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' "$db_container")
+
+        until [ "$status" = "healthy" ]; do
+          attempts=$((attempts + 1))
+
+          if [ "$attempts" -ge "$max_attempts" ]; then
+            echo "Database did not become healthy (last status: $status)"
+            docker compose -p many-faced-god -f ./docker-compose.prod.yml logs db
+            exit 1
+          fi
+
+          echo "Waiting for database to become healthy (current: $status)..."
+          sleep 2
+          status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' "$db_container")
+        done
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force
       - docker image prune -f
       - echo "Deployment completed successfully"

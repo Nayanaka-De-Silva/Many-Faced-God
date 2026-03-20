@@ -73,6 +73,7 @@ DB_PORT=3306
 DB_DATABASE=many_faced_god
 DB_USERNAME=mfg_user
 DB_PASSWORD=<strong-random-password>
+MYSQL_ROOT_PASSWORD=<strong-random-root-password>
 
 # Session Configuration
 SESSION_DRIVER=file         # Or database/redis for scaling
@@ -175,6 +176,7 @@ Access the application:
 | `DB_DATABASE` | many_faced_god | Database name |
 | `DB_USERNAME` | mfg_user | Database user |
 | `DB_PASSWORD` | secret | Database password (CHANGE IN PRODUCTION) |
+| `MYSQL_ROOT_PASSWORD` | secret-root | MySQL root password required by the database container |
 
 ### Session & Cache
 
@@ -313,7 +315,7 @@ docker-compose exec -T app php artisan migrate --force
 docker-compose restart app webserver
 ```
 
-If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step also runs `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force` after the updated containers come up so additive schema changes are applied before the new application code serves traffic.
+If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step waits for the database container to become healthy before running `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force`. Bringing the containers up is not enough on its own; MySQL must also be accepting connections.
 
 ### View Logs
 
