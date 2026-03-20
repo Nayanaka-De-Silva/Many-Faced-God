@@ -9,8 +9,7 @@ services:
     networks:
       - many-faced-god-network
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   webserver:
     build:
@@ -42,10 +41,9 @@ services:
       - many-faced-god-network
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
-      interval: 5s
+      interval: 2s
       timeout: 5s
-      retries: 12
-      start_period: 10s
+      retries: 15
 
 networks:
   many-faced-god-network:

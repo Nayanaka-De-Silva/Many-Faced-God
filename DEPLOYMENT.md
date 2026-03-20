@@ -315,7 +315,7 @@ docker-compose exec -T app php artisan migrate --force
 docker-compose restart app webserver
 ```
 
-If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step waits for the database container to become healthy before running `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force`. Bringing the containers up is not enough on its own; MySQL must also be accepting connections.
+If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step actively probes the database (for example, with `mysqladmin ping` inside the `db` container) before running `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force`. Bringing the containers up is not enough on its own; MySQL must also be accepting connections.
 
 ### View Logs
 
