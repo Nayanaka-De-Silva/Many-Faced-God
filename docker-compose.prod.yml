@@ -9,7 +9,8 @@ services:
     networks:
       - many-faced-god-network
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   webserver:
     build:
@@ -30,10 +31,21 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - many-faced-god-db-data:/var/lib/mysql
     networks:
       - many-faced-god-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 networks:
   many-faced-god-network:
