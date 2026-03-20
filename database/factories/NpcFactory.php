@@ -16,6 +16,11 @@ class NpcFactory extends Factory
             'name' => fake()->name(),
             'npc_type' => fake()->randomElement(['Medium Humanoid', 'Small Humanoid', 'Large Beast', 'Medium Undead']),
             'alignment' => fake()->randomElement(Npc::ALIGNMENTS),
+            'notes' => fake()->optional()->paragraph(),
+            'personality_traits' => fake()->optional()->sentence(),
+            'ideals' => fake()->optional()->sentence(),
+            'bonds' => fake()->optional()->sentence(),
+            'flaws' => fake()->optional()->sentence(),
             'armor_class' => fake()->numberBetween(10, 20),
             'armor_type' => fake()->optional()->randomElement(['leather armor', 'chain mail', 'plate', 'natural armor']),
             'hit_points' => fake()->numberBetween(10, 100),
@@ -49,6 +54,10 @@ class NpcFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'is_template' => true,
+            'personality_traits' => null,
+            'ideals' => null,
+            'bonds' => null,
+            'flaws' => null,
         ]);
     }
 

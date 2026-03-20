@@ -61,6 +61,7 @@ class NpcController extends Controller
         $folders = Folder::orderBy('name')->get();
         $templates = Npc::templates()->orderBy('name')->get();
         $sourceNpc = null;
+        $defaultIsTemplate = $request->boolean('is_template');
 
         // If creating from template or existing NPC
         if ($request->filled('from_template')) {
@@ -71,7 +72,7 @@ class NpcController extends Controller
                 ->find($request->from_npc);
         }
 
-        return view('npcs.create', compact('folders', 'templates', 'sourceNpc'));
+        return view('npcs.create', compact('folders', 'templates', 'sourceNpc', 'defaultIsTemplate'));
     }
 
     /**
@@ -83,6 +84,11 @@ class NpcController extends Controller
             'name' => 'required|string|max:255',
             'npc_type' => 'nullable|string|max:255',
             'alignment' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'personality_traits' => 'nullable|string',
+            'ideals' => 'nullable|string',
+            'bonds' => 'nullable|string',
+            'flaws' => 'nullable|string',
             'armor_class' => 'nullable|integer|min:0',
             'armor_type' => 'nullable|string|max:255',
             'hit_points' => 'nullable|integer|min:0',
@@ -124,6 +130,8 @@ class NpcController extends Controller
             'spellcasting.spellcasting_notes' => 'nullable|string',
             'spellcasting.spells' => 'nullable|array',
         ]);
+
+        $validated = $this->sanitizeNpcData($validated);
 
         // Roll hit points if hit dice provided but no HP
         if (empty($validated['hit_points']) && !empty($validated['hit_dice'])) {
@@ -186,6 +194,11 @@ class NpcController extends Controller
             'name' => 'required|string|max:255',
             'npc_type' => 'nullable|string|max:255',
             'alignment' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'personality_traits' => 'nullable|string',
+            'ideals' => 'nullable|string',
+            'bonds' => 'nullable|string',
+            'flaws' => 'nullable|string',
             'armor_class' => 'nullable|integer|min:0',
             'armor_type' => 'nullable|string|max:255',
             'hit_points' => 'nullable|integer|min:0',
@@ -229,6 +242,8 @@ class NpcController extends Controller
             'spellcasting.spellcasting_notes' => 'nullable|string',
             'spellcasting.spells' => 'nullable|array',
         ]);
+
+        $validated = $this->sanitizeNpcData($validated);
 
         $npc->update($validated);
 
@@ -317,5 +332,22 @@ class NpcController extends Controller
         return redirect()
             ->back()
             ->with('success', "NPC moved to '{$folderName}'.");
+    }
+
+    /**
+     * Normalize note fields based on whether the record is a template.
+     */
+    private function sanitizeNpcData(array $validated): array
+    {
+        if (!($validated['is_template'] ?? false)) {
+            return $validated;
+        }
+
+        $validated['personality_traits'] = null;
+        $validated['ideals'] = null;
+        $validated['bonds'] = null;
+        $validated['flaws'] = null;
+
+        return $validated;
     }
 }

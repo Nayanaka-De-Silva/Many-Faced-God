@@ -42,9 +42,9 @@ steps:
       - cd /deploy
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml down --remove-orphans
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans
+      - docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
       - event: push
         branch: master
-

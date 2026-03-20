@@ -101,4 +101,23 @@ class NpcTest extends TestCase
         $this->assertContains('Unaligned', Npc::ALIGNMENTS);
         $this->assertCount(10, Npc::ALIGNMENTS);
     }
+
+    public function test_note_preview_returns_first_two_sentences(): void
+    {
+        $npc = new Npc([
+            'notes' => 'First detail. Second detail. Third detail should not appear.',
+        ]);
+
+        $this->assertEquals('First detail. Second detail.', $npc->notePreview());
+    }
+
+    public function test_has_character_notes_detects_populated_fields(): void
+    {
+        $npc = new Npc([
+            'bonds' => 'Protect the temple at all costs.',
+        ]);
+
+        $this->assertTrue($npc->hasCharacterNotes());
+        $this->assertFalse((new Npc())->hasCharacterNotes());
+    }
 }

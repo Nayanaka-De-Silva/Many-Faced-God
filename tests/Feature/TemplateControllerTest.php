@@ -33,6 +33,27 @@ class TemplateControllerTest extends TestCase
         $response->assertSee('Template');
     }
 
+    public function test_show_displays_template_notes_without_character_notes(): void
+    {
+        $template = Npc::factory()->template()->create([
+            'name' => 'Noble Template',
+            'notes' => 'Use this for courtly intrigue scenes.',
+            'personality_traits' => 'Should stay hidden.',
+            'ideals' => 'Should stay hidden.',
+            'bonds' => 'Should stay hidden.',
+            'flaws' => 'Should stay hidden.',
+        ]);
+
+        $response = $this->get(route('templates.show', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee('Noble Template');
+        $response->assertSee('Notes');
+        $response->assertSee('Use this for courtly intrigue scenes.');
+        $response->assertDontSee('Personality Traits');
+        $response->assertDontSee('Should stay hidden.');
+    }
+
     public function test_show_returns_404_for_non_template(): void
     {
         $npc = Npc::factory()->create();

@@ -130,6 +130,11 @@
                                                 <p class="card-text small mb-1">
                                                     {{ $npc->alignment ?? 'Unaligned' }}
                                                 </p>
+                                                @if($npc->notePreview())
+                                                    <p class="card-text small text-muted npc-notes-preview mb-1">
+                                                        {{ $npc->notePreview(120) }}
+                                                    </p>
+                                                @endif
                                                 @if($npc->challenge_rating)
                                                     <span class="badge badge-cr">CR {{ $npc->challenge_rating }}</span>
                                                 @endif
