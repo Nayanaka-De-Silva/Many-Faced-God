@@ -8,8 +8,11 @@
                 @if($folder->description)
                     <p class="card-text small text-muted">{{ Str::limit($folder->description, 100) }}</p>
                 @endif
+                @php($npcCount = $folder->actualNpcCount())
+                @php($templateCount = $folder->templateCount())
                 <p class="small mb-0">
-                    <i class="bi bi-people"></i> {{ $folder->npcs->count() }} NPCs
+                    <i class="bi bi-people"></i> {{ $npcCount }} {{ $npcCount === 1 ? 'NPC' : 'NPCs' }}
+                    • <i class="bi bi-file-earmark-text"></i> {{ $templateCount }} {{ $templateCount === 1 ? 'Template' : 'Templates' }}
                     @if($folder->children->count() > 0)
                         • <i class="bi bi-folder"></i> {{ $folder->children->count() }} subfolders
                     @endif
