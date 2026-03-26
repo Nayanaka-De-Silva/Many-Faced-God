@@ -308,14 +308,18 @@ docker-compose exec -T app php artisan view:clear
 # Pull latest code
 git pull origin main
 
-# Run migrations
-docker-compose exec -T app php artisan migrate --force
+# Recreate containers from the freshly built images and wait for services
+docker compose -p many-faced-god -f ./docker-compose.prod.yml \
+  up --force-recreate -d --remove-orphans --wait --wait-timeout 120
 
-# Restart containers
-docker-compose restart app webserver
+# Run migrations after the database is healthy
+docker compose -p many-faced-god -f ./docker-compose.prod.yml \
+  exec -T app php artisan migrate --force
 ```
 
-If you automate deployment through a CI/CD system such as Woodpecker, make sure the deploy step actively probes the database (for example, with `mysqladmin ping` inside the `db` container) before running `docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force`. Bringing the containers up is not enough on its own; MySQL must also be accepting connections.
+For image-based production deploys, avoid `docker compose restart` as the primary rollout command. Restarting existing containers does not load newly built images, so it can leave the previous application version running even after a successful image build.
+
+If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. That keeps the deploy step simpler while still waiting for MySQL to accept connections before `php artisan migrate --force` runs.
 
 ### View Logs
 
