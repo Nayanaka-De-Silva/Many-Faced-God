@@ -50,18 +50,66 @@ class Folder extends Model
     }
 
     /**
+     * Get the non-template NPCs in this folder.
+     */
+    public function actualNpcs(): HasMany
+    {
+        return $this->hasMany(Npc::class)->npcs();
+    }
+
+    /**
+     * Get the templates in this folder.
+     */
+    public function templates(): HasMany
+    {
+        return $this->hasMany(Npc::class)->templates();
+    }
+
+    /**
+     * Get the non-template NPC count for this folder.
+     */
+    public function actualNpcCount(): int
+    {
+        if (isset($this->actual_npcs_count)) {
+            return $this->actual_npcs_count;
+        }
+
+        if ($this->relationLoaded('actualNpcs')) {
+            return $this->actualNpcs->count();
+        }
+
+        return $this->actualNpcs()->count();
+    }
+
+    /**
+     * Get the template count for this folder.
+     */
+    public function templateCount(): int
+    {
+        if (isset($this->templates_count)) {
+            return $this->templates_count;
+        }
+
+        if ($this->relationLoaded('templates')) {
+            return $this->templates->count();
+        }
+
+        return $this->templates()->count();
+    }
+
+    /**
      * Get the breadcrumb path to this folder.
      */
     public function getBreadcrumbAttribute(): array
     {
         $breadcrumb = [];
         $folder = $this;
-        
+
         while ($folder) {
             array_unshift($breadcrumb, $folder);
             $folder = $folder->parent;
         }
-        
+
         return $breadcrumb;
     }
 }

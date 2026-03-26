@@ -46,13 +46,18 @@
         <h5 class="mb-3"><i class="bi bi-folder"></i> Subfolders</h5>
         <div class="row mb-4">
             @foreach($folder->children as $child)
+                @php($childNpcCount = $child->actualNpcCount())
+                @php($childTemplateCount = $child->templateCount())
                 <div class="col-md-3 mb-3">
                     <a href="{{ route('folders.show', $child) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="card-body">
                                 <i class="bi bi-folder text-success"></i> {{ $child->name }}
                                 <br>
-                                <small class="text-muted">{{ $child->npcs->count() }} NPCs</small>
+                                <small class="text-muted">
+                                    {{ $childNpcCount }} {{ $childNpcCount === 1 ? 'NPC' : 'NPCs' }}
+                                    • {{ $childTemplateCount }} {{ $childTemplateCount === 1 ? 'Template' : 'Templates' }}
+                                </small>
                             </div>
                         </div>
                     </a>
@@ -63,9 +68,9 @@
 
     <!-- NPCs in this folder -->
     <h5 class="mb-3"><i class="bi bi-people"></i> NPCs in this Folder</h5>
-    @if($folder->npcs->count() > 0)
-        <div class="row">
-            @foreach($folder->npcs as $npc)
+    @if($folder->actualNpcs->count() > 0)
+        <div class="row mb-4">
+            @foreach($folder->actualNpcs as $npc)
                 <div class="col-md-4 col-lg-3 mb-3">
                     <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none">
                         <div class="npc-card card h-100">
@@ -94,7 +99,47 @@
             @endforeach
         </div>
     @else
-        <p class="text-muted text-center">No NPCs in this folder yet.</p>
+        <p class="text-muted text-center mb-4">No NPCs in this folder yet.</p>
+    @endif
+
+    <!-- Templates in this folder -->
+    <h5 class="mb-3"><i class="bi bi-file-earmark-text"></i> Templates in this Folder</h5>
+    @if($folder->templates->count() > 0)
+        <div class="row">
+            @foreach($folder->templates as $template)
+                <div class="col-md-4 col-lg-3 mb-3">
+                    <a href="{{ route('templates.show', $template) }}" class="text-decoration-none">
+                        <div class="card h-100 border-secondary">
+                            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-file-earmark-text"></i> {{ $template->name }}</span>
+                                @if($template->challenge_rating)
+                                    <span class="badge bg-dark">CR {{ $template->challenge_rating }}</span>
+                                @endif
+                            </div>
+                            <div class="card-body">
+                                <p class="small text-muted fst-italic mb-2">
+                                    {{ $template->npc_type ?? 'Unknown Type' }}, {{ $template->alignment ?? 'Unaligned' }}
+                                </p>
+
+                                @if($template->hit_points)
+                                    <p class="small mb-1">
+                                        <strong>HP:</strong> {{ $template->hit_points }}
+                                    </p>
+                                @endif
+
+                                @if($template->armor_class)
+                                    <p class="small mb-0">
+                                        <strong>AC:</strong> {{ $template->armor_class }}
+                                    </p>
+                                @endif
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endforeach
+        </div>
+    @else
+        <p class="text-muted text-center">No templates in this folder yet.</p>
     @endif
 </div>
 @endsection

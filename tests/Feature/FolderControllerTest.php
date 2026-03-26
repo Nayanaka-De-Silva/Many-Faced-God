@@ -84,6 +84,57 @@ class FolderControllerTest extends TestCase
         $response->assertSee('Folder NPC');
     }
 
+    public function test_show_separates_actual_npcs_from_templates_in_folder(): void
+    {
+        $folder = Folder::factory()->create();
+        $npc = Npc::factory()->inFolder($folder)->create(['name' => 'Folder NPC']);
+        $template = Npc::factory()->template()->inFolder($folder)->create(['name' => 'Folder Template']);
+
+        $response = $this->get(route('folders.show', $folder));
+
+        $response->assertStatus(200);
+        $response->assertSee('NPCs in this Folder');
+        $response->assertSee('Templates in this Folder');
+        $response->assertSee('Folder NPC');
+        $response->assertSee('Folder Template');
+        $response->assertSee(route('npcs.show', $npc), false);
+        $response->assertSee(route('templates.show', $template), false);
+        $response->assertDontSee(route('npcs.show', $template), false);
+    }
+
+    public function test_index_displays_separate_npc_and_template_counts_for_folders(): void
+    {
+        $folder = Folder::factory()->create(['name' => 'Mixed Folder']);
+        Npc::factory()->inFolder($folder)->create();
+        Npc::factory()->template()->inFolder($folder)->create();
+
+        $response = $this->get(route('folders.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Mixed Folder');
+        $response->assertSee('1 NPC');
+        $response->assertSee('1 Template');
+    }
+
+    public function test_show_displays_separate_npc_and_template_counts_for_subfolders(): void
+    {
+        $parent = Folder::factory()->create();
+        $child = Folder::factory()->create([
+            'name' => 'Child Folder',
+            'parent_id' => $parent->id,
+        ]);
+
+        Npc::factory()->inFolder($child)->create();
+        Npc::factory()->template()->inFolder($child)->create();
+
+        $response = $this->get(route('folders.show', $parent));
+
+        $response->assertStatus(200);
+        $response->assertSee('Child Folder');
+        $response->assertSee('1 NPC');
+        $response->assertSee('1 Template');
+    }
+
     public function test_show_displays_notes_preview_for_npcs_in_folder(): void
     {
         $folder = Folder::factory()->create();

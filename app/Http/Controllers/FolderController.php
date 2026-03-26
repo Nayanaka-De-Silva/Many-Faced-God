@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Folder;
 use App\Models\Npc;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class FolderController extends Controller
 {
@@ -15,7 +15,10 @@ class FolderController extends Controller
      */
     public function index(): View
     {
-        $folders = Folder::with(['children', 'npcs'])
+        $folders = Folder::with([
+            'children' => fn ($query) => $query->withCount(['actualNpcs', 'templates']),
+        ])
+            ->withCount(['actualNpcs', 'templates'])
             ->whereNull('parent_id')
             ->orderBy('name')
             ->get();
@@ -32,7 +35,7 @@ class FolderController extends Controller
     {
         $parentFolders = Folder::orderBy('name')->get();
         $parentId = $request->get('parent_id');
-        
+
         return view('folders.create', compact('parentFolders', 'parentId'));
     }
 
@@ -59,8 +62,13 @@ class FolderController extends Controller
      */
     public function show(Folder $folder): View
     {
-        $folder->load(['children', 'npcs', 'parent']);
-        
+        $folder->load([
+            'parent',
+            'actualNpcs',
+            'templates',
+            'children' => fn ($query) => $query->withCount(['actualNpcs', 'templates']),
+        ])->loadCount(['actualNpcs', 'templates']);
+
         return view('folders.show', compact('folder'));
     }
 
@@ -72,7 +80,7 @@ class FolderController extends Controller
         $parentFolders = Folder::where('id', '!=', $folder->id)
             ->orderBy('name')
             ->get();
-        
+
         return view('folders.edit', compact('folder', 'parentFolders'));
     }
 
@@ -92,7 +100,7 @@ class FolderController extends Controller
                     if ($value == $folder->id) {
                         $fail('A folder cannot be its own parent.');
                     }
-                    
+
                     $descendantIds = $this->getDescendantIds($folder);
                     if (in_array($value, $descendantIds)) {
                         $fail('A folder cannot be moved into its own descendant.');
@@ -133,12 +141,12 @@ class FolderController extends Controller
     private function getDescendantIds(Folder $folder): array
     {
         $ids = [];
-        
+
         foreach ($folder->children as $child) {
             $ids[] = $child->id;
             $ids = array_merge($ids, $this->getDescendantIds($child));
         }
-        
+
         return $ids;
     }
 }
