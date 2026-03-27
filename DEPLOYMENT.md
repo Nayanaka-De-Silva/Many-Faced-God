@@ -316,6 +316,7 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
 docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   exec -T app sh -lc '
   i=0
+  echo "Checking app -> db connectivity before running migrations..."
   until mysqladmin ping -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
     if [ "$i" -ge 10 ]; then
       echo "ERROR: database is not reachable from app after 30s" >&2
