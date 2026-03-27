@@ -317,11 +317,11 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   exec -T app sh -lc '
   i=0
   until mysqladmin ping -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
-    i=$((i+1))
     if [ "$i" -ge 10 ]; then
       echo "ERROR: database is not reachable from app after 30s" >&2
       exit 1
     fi
+    i=$((i+1))
     echo "Waiting for app -> db readiness ($i/10)..."
     sleep 3
   done
