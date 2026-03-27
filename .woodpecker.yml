@@ -40,25 +40,7 @@ steps:
       - /home/krystler/containers/many-faced-god:/deploy
     commands:
       - cd /deploy
-      - docker compose -p many-faced-god -f ./docker-compose.prod.yml down --remove-orphans
-      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans
-      - |
-        attempts=0
-        max_attempts=60
-
-        until docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T db \
-          sh -lc 'mysqladmin ping -h 127.0.0.1 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent'; do
-          attempts=$((attempts + 1))
-
-          if [ "$attempts" -ge "$max_attempts" ]; then
-            echo "Database did not become responsive after $max_attempts attempts"
-            docker compose -p many-faced-god -f ./docker-compose.prod.yml logs db
-            exit 1
-          fi
-
-          echo "Waiting for database to accept connections..."
-          sleep 2
-        done
+      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans --wait --wait-timeout 120
       - docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app php artisan migrate --force
       - docker image prune -f
       - echo "Deployment completed successfully"
