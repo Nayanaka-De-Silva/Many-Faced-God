@@ -209,39 +209,33 @@
 
                     <!-- Actions -->
                     @php
-                        $standardActions = $npc->actions->where('action_type', 'action');
-                        $bonusActions = $npc->actions->where('action_type', 'bonus_action');
-                        $reactions = $npc->actions->where('action_type', 'reaction');
-                        $legendaryActions = $npc->actions->where('action_type', 'legendary_action');
+                        $mainActions = $npc->actions->whereIn('action_type', [
+                            \App\Models\NpcAction::TYPE_ACTION,
+                            \App\Models\NpcAction::TYPE_ATTACK,
+                        ]);
+                        $bonusActions = $npc->actions->where('action_type', \App\Models\NpcAction::TYPE_BONUS_ACTION);
+                        $reactions = $npc->actions->where('action_type', \App\Models\NpcAction::TYPE_REACTION);
+                        $legendaryActions = $npc->actions->where('action_type', \App\Models\NpcAction::TYPE_LEGENDARY_ACTION);
                     @endphp
 
-                    @if($standardActions->count() > 0)
+                    @if($mainActions->count() > 0)
                         <h5 class="text-danger mt-4">Actions</h5>
-                        @foreach($standardActions as $action)
-                            <p>
-                                <strong><em>{{ $action->name }}.</em></strong>
-                                {{ $action->description }}
-                            </p>
+                        @foreach($mainActions as $action)
+                            @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
 
                     @if($bonusActions->count() > 0)
                         <h5 class="text-danger mt-4">Bonus Actions</h5>
                         @foreach($bonusActions as $action)
-                            <p>
-                                <strong><em>{{ $action->name }}.</em></strong>
-                                {{ $action->description }}
-                            </p>
+                            @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
 
                     @if($reactions->count() > 0)
                         <h5 class="text-danger mt-4">Reactions</h5>
                         @foreach($reactions as $action)
-                            <p>
-                                <strong><em>{{ $action->name }}.</em></strong>
-                                {{ $action->description }}
-                            </p>
+                            @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
 
@@ -253,10 +247,7 @@
                             The {{ strtolower($npc->name) }} regains spent legendary actions at the start of its turn.
                         </p>
                         @foreach($legendaryActions as $action)
-                            <p>
-                                <strong><em>{{ $action->name }}{{ $action->legendary_cost > 1 ? ' (Costs ' . $action->legendary_cost . ' Actions)' : '' }}.</em></strong>
-                                {{ $action->description }}
-                            </p>
+                            @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
                 </div>

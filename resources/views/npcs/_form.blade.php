@@ -364,7 +364,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-md-1 legendary-cost-col" style="{{ ($action['action_type'] ?? '') == 'legendary_action' ? '' : 'display:none;' }}">
+                        <div class="col-md-1 legendary-cost-col" style="{{ ($action['action_type'] ?? '') == \App\Models\NpcAction::TYPE_LEGENDARY_ACTION ? '' : 'display:none;' }}">
                             <input type="number" name="actions[{{ $index }}][legendary_cost]" class="form-control" 
                                 placeholder="Cost" min="1" value="{{ $action['legendary_cost'] ?? 1 }}">
                         </div>
@@ -374,6 +374,40 @@
                         </div>
                         <div class="col-md-1">
                             <button type="button" class="btn btn-outline-danger w-100 remove-action">×</button>
+                        </div>
+                        <div class="col-12 attack-fields-row" style="{{ ($action['action_type'] ?? '') == \App\Models\NpcAction::TYPE_ATTACK ? '' : 'display:none;' }}">
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-2">
+                                    <select name="actions[{{ $index }}][attack_kind]" class="form-select">
+                                        <option value="">Attack Type</option>
+                                        @foreach(\App\Models\NpcAction::ATTACK_KINDS as $key => $label)
+                                            <option value="{{ $key }}" {{ ($action['attack_kind'] ?? '') === $key ? 'selected' : '' }}>
+                                                {{ $label }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[{{ $index }}][attack_range_text]" class="form-control"
+                                        placeholder="Reach / Range" value="{{ $action['attack_range_text'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" name="actions[{{ $index }}][attack_to_hit]" class="form-control"
+                                        placeholder="To Hit" value="{{ $action['attack_to_hit'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[{{ $index }}][attack_target]" class="form-control"
+                                        placeholder="Target" value="{{ $action['attack_target'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[{{ $index }}][attack_hit]" class="form-control"
+                                        placeholder="On Hit" value="{{ $action['attack_hit'] ?? '' }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[{{ $index }}][attack_hit_2]" class="form-control"
+                                        placeholder="On Hit 2" value="{{ $action['attack_hit_2'] ?? '' }}">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -475,31 +509,59 @@
         const container = document.getElementById('actionsContainer');
         const html = `
             <div class="action-row border rounded p-3 mb-3">
-                <div class="row g-2">
-                    <div class="col-md-3">
-                        <input type="text" name="actions[${actionIndex}][name]" class="form-control" placeholder="Action Name">
-                    </div>
-                    <div class="col-md-2">
-                        <select name="actions[${actionIndex}][action_type]" class="form-select action-type-select">
-                            <option value="action">Action</option>
-                            <option value="bonus_action">Bonus Action</option>
-                            <option value="reaction">Reaction</option>
-                            <option value="legendary_action">Legendary Action</option>
-                        </select>
-                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <input type="text" name="actions[${actionIndex}][name]" class="form-control" placeholder="Action Name">
+                        </div>
+                        <div class="col-md-2">
+                            <select name="actions[${actionIndex}][action_type]" class="form-select action-type-select">
+                                <option value="action">Action</option>
+                                <option value="attack_action">Attack Action</option>
+                                <option value="bonus_action">Bonus Action</option>
+                                <option value="reaction">Reaction</option>
+                                <option value="legendary_action">Legendary Action</option>
+                            </select>
+                        </div>
                     <div class="col-md-1 legendary-cost-col" style="display:none;">
                         <input type="number" name="actions[${actionIndex}][legendary_cost]" class="form-control" placeholder="Cost" min="1" value="1">
                     </div>
                     <div class="col-md-5">
                         <textarea name="actions[${actionIndex}][description]" class="form-control" rows="2" placeholder="Action Description"></textarea>
                     </div>
-                    <div class="col-md-1">
-                        <button type="button" class="btn btn-outline-danger w-100 remove-action">×</button>
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-outline-danger w-100 remove-action">×</button>
+                        </div>
+                        <div class="col-12 attack-fields-row" style="display:none;">
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-2">
+                                    <select name="actions[${actionIndex}][attack_kind]" class="form-select">
+                                        <option value="">Attack Type</option>
+                                        <option value="melee">Melee</option>
+                                        <option value="ranged">Ranged</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[${actionIndex}][attack_range_text]" class="form-control" placeholder="Reach / Range">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" name="actions[${actionIndex}][attack_to_hit]" class="form-control" placeholder="To Hit">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[${actionIndex}][attack_target]" class="form-control" placeholder="Target">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[${actionIndex}][attack_hit]" class="form-control" placeholder="On Hit">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" name="actions[${actionIndex}][attack_hit_2]" class="form-control" placeholder="On Hit 2">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
+        toggleActionRowFields(container.lastElementChild);
         actionIndex++;
     });
 
@@ -530,11 +592,20 @@
         }
     });
 
-    // Toggle legendary cost
+    function toggleActionRowFields(actionRow) {
+        const actionTypeSelect = actionRow.querySelector('.action-type-select');
+        const costCol = actionRow.querySelector('.legendary-cost-col');
+        const attackFieldsRow = actionRow.querySelector('.attack-fields-row');
+
+        costCol.style.display = actionTypeSelect.value === 'legendary_action' ? '' : 'none';
+        attackFieldsRow.style.display = actionTypeSelect.value === 'attack_action' ? '' : 'none';
+    }
+
+    document.querySelectorAll('.action-row').forEach(toggleActionRowFields);
+
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('action-type-select')) {
-            const costCol = e.target.closest('.row').querySelector('.legendary-cost-col');
-            costCol.style.display = e.target.value === 'legendary_action' ? '' : 'none';
+            toggleActionRowFields(e.target.closest('.action-row'));
         }
     });
 

@@ -94,6 +94,37 @@ class NpcModelTest extends TestCase
         $this->assertCount(1, $clone->actions);
     }
 
+    public function test_npc_duplicate_copies_attack_action_fields(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Original']);
+        NpcAction::factory()->attackAction()->create(['npc_id' => $npc->id]);
+
+        $clone = $npc->duplicate();
+        $cloneAction = $clone->actions->first();
+
+        $this->assertEquals(NpcAction::TYPE_ATTACK, $cloneAction->action_type);
+        $this->assertEquals('melee', $cloneAction->attack_kind);
+        $this->assertEquals('5 ft.', $cloneAction->attack_range_text);
+        $this->assertEquals(5, $cloneAction->attack_to_hit);
+        $this->assertEquals('One target', $cloneAction->attack_target);
+        $this->assertEquals('5 (1d10) slashing damage', $cloneAction->attack_hit);
+        $this->assertEquals('2d6+5 fire damage', $cloneAction->attack_hit_2);
+    }
+
+    public function test_attack_action_formats_display_lines(): void
+    {
+        $action = NpcAction::factory()->attackAction()->make();
+
+        $this->assertEquals(
+            'Melee Weapon Attack: +5, Reach 5 ft., One target',
+            $action->formatted_attack_line
+        );
+        $this->assertEquals(
+            'Hit: 5 (1d10) slashing damage (plus 2d6+5 fire damage)',
+            $action->formatted_hit_line
+        );
+    }
+
     public function test_npc_duplicate_copies_note_fields(): void
     {
         $npc = Npc::factory()->create([

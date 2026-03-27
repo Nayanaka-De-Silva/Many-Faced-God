@@ -91,13 +91,17 @@
                         @endforeach
                     @endif
 
-                    @if($template->actions->count() > 0)
+                    @php
+                        $templateActions = $template->actions->whereIn('action_type', [
+                            \App\Models\NpcAction::TYPE_ACTION,
+                            \App\Models\NpcAction::TYPE_ATTACK,
+                        ]);
+                    @endphp
+
+                    @if($templateActions->count() > 0)
                         <h5 class="text-danger mt-4">Actions</h5>
-                        @foreach($template->actions->where('action_type', 'action') as $action)
-                            <p>
-                                <strong><em>{{ $action->name }}.</em></strong>
-                                {{ $action->description }}
-                            </p>
+                        @foreach($templateActions as $action)
+                            @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
                 </div>

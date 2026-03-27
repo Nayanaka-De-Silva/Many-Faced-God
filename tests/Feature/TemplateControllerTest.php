@@ -62,6 +62,30 @@ class TemplateControllerTest extends TestCase
         $response->assertDontSee('Should stay hidden.');
     }
 
+    public function test_show_displays_attack_actions(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Knight Template']);
+        $template->actions()->create([
+            'name' => 'Flaming Longsword',
+            'description' => 'The target ignites briefly after the strike.',
+            'action_type' => \App\Models\NpcAction::TYPE_ATTACK,
+            'attack_kind' => 'melee',
+            'attack_range_text' => '5 ft.',
+            'attack_to_hit' => 5,
+            'attack_target' => 'One target',
+            'attack_hit' => '5 (1d10) slashing damage',
+            'attack_hit_2' => '2d6+5 fire damage',
+        ]);
+
+        $response = $this->get(route('templates.show', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee('Flaming Longsword');
+        $response->assertSee('Melee Weapon Attack: +5, Reach 5 ft., One target');
+        $response->assertSee('Hit: 5 (1d10) slashing damage (plus 2d6+5 fire damage)');
+        $response->assertSee('The target ignites briefly after the strike.');
+    }
+
     public function test_show_returns_404_for_non_template(): void
     {
         $npc = Npc::factory()->create();
