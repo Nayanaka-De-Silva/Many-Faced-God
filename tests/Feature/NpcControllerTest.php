@@ -7,7 +7,10 @@ use App\Models\Folder;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
+use DOMDocument;
+use DOMXPath;
 
 class NpcControllerTest extends TestCase
 {
@@ -72,22 +75,14 @@ class NpcControllerTest extends TestCase
     {
         $response = $this->get(route('npcs.create'));
 
-        $response->assertStatus(200);
-        $this->assertMatchesRegularExpression(
-            '/<input type="checkbox" name="is_template" id="is_template" class="form-check-input" value="1"\s*>/',
-            $response->getContent()
-        );
+        $this->assertTemplateCheckboxState($response, checked: false);
     }
 
     public function test_create_from_templates_dashboard_checks_template_checkbox(): void
     {
         $response = $this->get(route('npcs.create', ['is_template' => 1]));
 
-        $response->assertStatus(200);
-        $this->assertMatchesRegularExpression(
-            '/<input type="checkbox" name="is_template" id="is_template" class="form-check-input" value="1"\s+checked>/',
-            $response->getContent()
-        );
+        $this->assertTemplateCheckboxState($response, checked: true);
     }
 
     public function test_store_creates_npc(): void
@@ -368,5 +363,29 @@ class NpcControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('First note sentence. Second note sentence.');
         $response->assertDontSee('Third note sentence.');
+    }
+
+    private function assertTemplateCheckboxState(TestResponse $response, bool $checked): void
+    {
+        $response->assertStatus(200);
+
+        $dom = new DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+
+        $dom->loadHTML($response->getContent());
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $checkbox = (new DOMXPath($dom))->query('//*[@id="is_template"]')->item(0);
+
+        $this->assertNotNull($checkbox, 'Expected the Save as Template checkbox to be present.');
+        $this->assertSame(
+            $checked,
+            $checkbox->hasAttribute('checked'),
+            $checked
+                ? 'Expected the Save as Template checkbox to be checked.'
+                : 'Expected the Save as Template checkbox to be unchecked.'
+        );
     }
 }
