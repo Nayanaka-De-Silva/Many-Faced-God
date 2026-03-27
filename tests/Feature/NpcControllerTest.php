@@ -68,6 +68,28 @@ class NpcControllerTest extends TestCase
         $response->assertSee('Create NPC');
     }
 
+    public function test_create_has_template_checkbox_unchecked_by_default(): void
+    {
+        $response = $this->get(route('npcs.create'));
+
+        $response->assertStatus(200);
+        $this->assertMatchesRegularExpression(
+            '/<input type="checkbox" name="is_template" id="is_template" class="form-check-input" value="1"\s*>/',
+            $response->getContent()
+        );
+    }
+
+    public function test_create_from_templates_dashboard_checks_template_checkbox(): void
+    {
+        $response = $this->get(route('npcs.create', ['is_template' => 1]));
+
+        $response->assertStatus(200);
+        $this->assertMatchesRegularExpression(
+            '/<input type="checkbox" name="is_template" id="is_template" class="form-check-input" value="1"\s+checked>/',
+            $response->getContent()
+        );
+    }
+
     public function test_store_creates_npc(): void
     {
         $response = $this->post(route('npcs.store'), [

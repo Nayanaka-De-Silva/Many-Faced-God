@@ -22,6 +22,14 @@ class TemplateControllerTest extends TestCase
         $response->assertDontSee('Regular NPC');
     }
 
+    public function test_index_create_template_link_preserves_template_flag(): void
+    {
+        $response = $this->get(route('templates.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee(route('npcs.create', ['is_template' => 1]), escape: false);
+    }
+
     public function test_show_displays_template(): void
     {
         $template = Npc::factory()->template()->create(['name' => 'Display Template']);
