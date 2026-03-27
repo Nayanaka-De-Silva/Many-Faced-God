@@ -312,14 +312,26 @@ git pull origin main
 docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   up --force-recreate -d --remove-orphans --wait --wait-timeout 120
 
-# Run migrations after the database is healthy
+# Wait briefly for app -> db connectivity, then run migrations
 docker compose -p many-faced-god -f ./docker-compose.prod.yml \
-  exec -T app php artisan migrate --force
+  exec -T app sh -lc '
+  i=0
+  until mysqladmin ping -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
+    i=$((i+1))
+    if [ "$i" -ge 10 ]; then
+      echo "ERROR: database is not reachable from app after 30s" >&2
+      exit 1
+    fi
+    echo "Waiting for app -> db readiness ($i/10)..."
+    sleep 3
+  done
+  php artisan migrate --force
+  '
 ```
 
 For image-based production deploys, avoid `docker compose restart` as the primary rollout command. Restarting existing containers does not load newly built images, so it can leave the previous application version running even after a successful image build.
 
-If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. That keeps the deploy step simpler while still waiting for MySQL to accept connections before `php artisan migrate --force` runs.
+If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. In this project, keep a small follow-up readiness loop around migrations as well, because the DB health check only proves MySQL is responding inside the DB container itself. The extra loop confirms the app container can actually reach `db:3306` before `php artisan migrate --force` runs.
 
 ### View Logs
 
