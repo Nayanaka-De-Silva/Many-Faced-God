@@ -289,7 +289,18 @@ class Npc extends Model
         }
 
         foreach ($this->actions as $action) {
-            $clone->actions()->create($action->only(['name', 'description', 'action_type', 'legendary_cost']));
+            $clone->actions()->create($action->only([
+                'name',
+                'description',
+                'action_type',
+                'legendary_cost',
+                'attack_kind',
+                'attack_range_text',
+                'attack_to_hit',
+                'attack_target',
+                'attack_hit',
+                'attack_hit_2',
+            ]));
         }
 
         if ($this->spellcasting) {

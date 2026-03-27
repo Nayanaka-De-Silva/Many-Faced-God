@@ -143,6 +143,73 @@ class NpcControllerTest extends TestCase
         $this->assertDatabaseHas('npc_actions', ['name' => 'Longsword']);
     }
 
+    public function test_store_creates_npc_with_attack_action(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'NPC With Attack Action',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'actions' => [
+                [
+                    'name' => 'Flaming Longsword',
+                    'description' => 'The target ignites briefly after the strike.',
+                    'action_type' => NpcAction::TYPE_ATTACK,
+                    'attack_kind' => 'melee',
+                    'attack_range_text' => '5 ft.',
+                    'attack_to_hit' => 5,
+                    'attack_target' => 'One target',
+                    'attack_hit' => '5 (1d10) slashing damage',
+                    'attack_hit_2' => '2d6+5 fire damage',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('npc_actions', [
+            'name' => 'Flaming Longsword',
+            'action_type' => NpcAction::TYPE_ATTACK,
+            'attack_kind' => 'melee',
+            'attack_range_text' => '5 ft.',
+            'attack_to_hit' => 5,
+            'attack_target' => 'One target',
+            'attack_hit' => '5 (1d10) slashing damage',
+            'attack_hit_2' => '2d6+5 fire damage',
+        ]);
+    }
+
+    public function test_store_validates_required_attack_action_fields(): void
+    {
+        $response = $this->from(route('npcs.create'))->post(route('npcs.store'), [
+            'name' => 'Broken Attack Action NPC',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'actions' => [
+                [
+                    'name' => 'Incomplete Attack',
+                    'description' => 'Missing important details.',
+                    'action_type' => NpcAction::TYPE_ATTACK,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('npcs.create'));
+        $response->assertSessionHasErrors([
+            'actions.0.attack_kind',
+            'actions.0.attack_range_text',
+            'actions.0.attack_to_hit',
+            'actions.0.attack_target',
+            'actions.0.attack_hit',
+        ]);
+    }
+
     public function test_store_creates_npc_with_notes_and_character_notes(): void
     {
         $response = $this->post(route('npcs.store'), [
@@ -263,6 +330,20 @@ class NpcControllerTest extends TestCase
         $response->assertSee('Suspicious of everyone new.');
     }
 
+    public function test_show_displays_attack_actions(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Fire Knight']);
+        NpcAction::factory()->attackAction()->create(['npc_id' => $npc->id]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSee('Flaming Longsword');
+        $response->assertSee('Melee Weapon Attack: +5, Reach 5 ft., One target');
+        $response->assertSee('Hit: 5 (1d10) slashing damage (plus 2d6+5 fire damage)');
+        $response->assertSee('The target ignites briefly after the strike.');
+    }
+
     public function test_edit_displays_form(): void
     {
         $npc = Npc::factory()->create(['name' => 'Edit NPC']);
@@ -318,6 +399,47 @@ class NpcControllerTest extends TestCase
             'ideals' => 'Knowledge should outlive empires.',
             'bonds' => 'The sealed royal archive.',
             'flaws' => 'Cannot let a mystery rest.',
+        ]);
+    }
+
+    public function test_update_persists_attack_action_fields(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Duellist']);
+
+        $response = $this->put(route('npcs.update', $npc), [
+            'name' => 'Duellist',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'actions' => [
+                [
+                    'name' => 'Precise Shot',
+                    'description' => 'A carefully aimed opening volley.',
+                    'action_type' => NpcAction::TYPE_ATTACK,
+                    'attack_kind' => 'ranged',
+                    'attack_range_text' => '30/120 ft.',
+                    'attack_to_hit' => 6,
+                    'attack_target' => 'One target',
+                    'attack_hit' => '7 (1d8+3) piercing damage',
+                    'attack_hit_2' => '',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('npc_actions', [
+            'npc_id' => $npc->id,
+            'name' => 'Precise Shot',
+            'action_type' => NpcAction::TYPE_ATTACK,
+            'attack_kind' => 'ranged',
+            'attack_range_text' => '30/120 ft.',
+            'attack_to_hit' => 6,
+            'attack_target' => 'One target',
+            'attack_hit' => '7 (1d8+3) piercing damage',
+            'attack_hit_2' => null,
         ]);
     }
 

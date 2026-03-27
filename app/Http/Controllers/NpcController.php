@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class NpcController extends Controller
 {
@@ -80,58 +83,7 @@ class NpcController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'npc_type' => 'nullable|string|max:255',
-            'alignment' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'personality_traits' => 'nullable|string',
-            'ideals' => 'nullable|string',
-            'bonds' => 'nullable|string',
-            'flaws' => 'nullable|string',
-            'armor_class' => 'nullable|integer|min:0',
-            'armor_type' => 'nullable|string|max:255',
-            'hit_points' => 'nullable|integer|min:0',
-            'hit_dice' => 'nullable|string|max:50',
-            'speed' => 'nullable|string|max:255',
-            'strength' => 'integer|min:1|max:30',
-            'dexterity' => 'integer|min:1|max:30',
-            'constitution' => 'integer|min:1|max:30',
-            'intelligence' => 'integer|min:1|max:30',
-            'wisdom' => 'integer|min:1|max:30',
-            'charisma' => 'integer|min:1|max:30',
-            'saving_throw_proficiencies' => 'nullable|array',
-            'skill_proficiencies' => 'nullable|array',
-            'damage_vulnerabilities' => 'nullable|array',
-            'damage_resistances' => 'nullable|array',
-            'damage_immunities' => 'nullable|array',
-            'condition_immunities' => 'nullable|array',
-            'senses' => 'nullable|array',
-            'languages' => 'nullable|array',
-            'challenge_rating' => 'nullable|string|max:10',
-            'proficiency_bonus' => 'nullable|integer|min:0',
-            'folder_id' => 'nullable|exists:folders,id',
-            'is_template' => 'boolean',
-            // Related models
-            'traits' => 'nullable|array',
-            'traits.*.name' => 'required_with:traits|string|max:255',
-            'traits.*.description' => 'required_with:traits|string',
-            'actions' => 'nullable|array',
-            'actions.*.name' => 'required_with:actions|string|max:255',
-            'actions.*.description' => 'required_with:actions|string',
-            'actions.*.action_type' => 'required_with:actions|in:action,bonus_action,reaction,legendary_action',
-            'actions.*.legendary_cost' => 'nullable|integer|min:1',
-            // Spellcasting
-            'has_spellcasting' => 'boolean',
-            'spellcasting.ability' => 'required_if:has_spellcasting,true|string',
-            'spellcasting.spell_save_dc' => 'nullable|integer',
-            'spellcasting.spell_attack_bonus' => 'nullable|integer',
-            'spellcasting.caster_level' => 'nullable|string',
-            'spellcasting.spellcasting_notes' => 'nullable|string',
-            'spellcasting.spells' => 'nullable|array',
-        ]);
-
-        $validated = $this->sanitizeNpcData($validated);
+        $validated = $this->validateNpc($request);
 
         // Roll hit points if hit dice provided but no HP
         if (empty($validated['hit_points']) && !empty($validated['hit_dice'])) {
@@ -190,60 +142,7 @@ class NpcController extends Controller
      */
     public function update(Request $request, Npc $npc): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'npc_type' => 'nullable|string|max:255',
-            'alignment' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
-            'personality_traits' => 'nullable|string',
-            'ideals' => 'nullable|string',
-            'bonds' => 'nullable|string',
-            'flaws' => 'nullable|string',
-            'armor_class' => 'nullable|integer|min:0',
-            'armor_type' => 'nullable|string|max:255',
-            'hit_points' => 'nullable|integer|min:0',
-            'hit_dice' => 'nullable|string|max:50',
-            'speed' => 'nullable|string|max:255',
-            'strength' => 'integer|min:1|max:30',
-            'dexterity' => 'integer|min:1|max:30',
-            'constitution' => 'integer|min:1|max:30',
-            'intelligence' => 'integer|min:1|max:30',
-            'wisdom' => 'integer|min:1|max:30',
-            'charisma' => 'integer|min:1|max:30',
-            'saving_throw_proficiencies' => 'nullable|array',
-            'skill_proficiencies' => 'nullable|array',
-            'damage_vulnerabilities' => 'nullable|array',
-            'damage_resistances' => 'nullable|array',
-            'damage_immunities' => 'nullable|array',
-            'condition_immunities' => 'nullable|array',
-            'senses' => 'nullable|array',
-            'languages' => 'nullable|array',
-            'challenge_rating' => 'nullable|string|max:10',
-            'proficiency_bonus' => 'nullable|integer|min:0',
-            'folder_id' => 'nullable|exists:folders,id',
-            'is_template' => 'boolean',
-            // Related models
-            'traits' => 'nullable|array',
-            'traits.*.id' => 'nullable|exists:npc_traits,id',
-            'traits.*.name' => 'required_with:traits|string|max:255',
-            'traits.*.description' => 'required_with:traits|string',
-            'actions' => 'nullable|array',
-            'actions.*.id' => 'nullable|exists:npc_actions,id',
-            'actions.*.name' => 'required_with:actions|string|max:255',
-            'actions.*.description' => 'required_with:actions|string',
-            'actions.*.action_type' => 'required_with:actions|in:action,bonus_action,reaction,legendary_action',
-            'actions.*.legendary_cost' => 'nullable|integer|min:1',
-            // Spellcasting
-            'has_spellcasting' => 'boolean',
-            'spellcasting.ability' => 'required_if:has_spellcasting,true|string',
-            'spellcasting.spell_save_dc' => 'nullable|integer',
-            'spellcasting.spell_attack_bonus' => 'nullable|integer',
-            'spellcasting.caster_level' => 'nullable|string',
-            'spellcasting.spellcasting_notes' => 'nullable|string',
-            'spellcasting.spells' => 'nullable|array',
-        ]);
-
-        $validated = $this->sanitizeNpcData($validated);
+        $validated = $this->validateNpc($request);
 
         $npc->update($validated);
 
@@ -335,10 +234,116 @@ class NpcController extends Controller
     }
 
     /**
+     * Validate the NPC payload.
+     */
+    private function validateNpc(Request $request): array
+    {
+        $validator = Validator::make($request->all(), $this->npcValidationRules());
+        $this->validateAttackActions($validator, $request->input('actions', []));
+
+        return $this->sanitizeNpcData($validator->validate());
+    }
+
+    /**
+     * Get the NPC validation rules.
+     */
+    private function npcValidationRules(): array
+    {
+        return [
+            'name' => 'required|string|max:255',
+            'npc_type' => 'nullable|string|max:255',
+            'alignment' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+            'personality_traits' => 'nullable|string',
+            'ideals' => 'nullable|string',
+            'bonds' => 'nullable|string',
+            'flaws' => 'nullable|string',
+            'armor_class' => 'nullable|integer|min:0',
+            'armor_type' => 'nullable|string|max:255',
+            'hit_points' => 'nullable|integer|min:0',
+            'hit_dice' => 'nullable|string|max:50',
+            'speed' => 'nullable|string|max:255',
+            'strength' => 'integer|min:1|max:30',
+            'dexterity' => 'integer|min:1|max:30',
+            'constitution' => 'integer|min:1|max:30',
+            'intelligence' => 'integer|min:1|max:30',
+            'wisdom' => 'integer|min:1|max:30',
+            'charisma' => 'integer|min:1|max:30',
+            'saving_throw_proficiencies' => 'nullable|array',
+            'skill_proficiencies' => 'nullable|array',
+            'damage_vulnerabilities' => 'nullable|array',
+            'damage_resistances' => 'nullable|array',
+            'damage_immunities' => 'nullable|array',
+            'condition_immunities' => 'nullable|array',
+            'senses' => 'nullable|array',
+            'languages' => 'nullable|array',
+            'challenge_rating' => 'nullable|string|max:10',
+            'proficiency_bonus' => 'nullable|integer|min:0',
+            'folder_id' => 'nullable|exists:folders,id',
+            'is_template' => 'boolean',
+            // Related models
+            'traits' => 'nullable|array',
+            'traits.*.id' => 'nullable|exists:npc_traits,id',
+            'traits.*.name' => 'required_with:traits|string|max:255',
+            'traits.*.description' => 'required_with:traits|string',
+            'actions' => 'nullable|array',
+            'actions.*.id' => 'nullable|exists:npc_actions,id',
+            'actions.*.name' => 'required_with:actions|string|max:255',
+            'actions.*.description' => 'required_with:actions|string',
+            'actions.*.action_type' => ['required_with:actions', Rule::in(array_keys(NpcAction::ACTION_TYPES))],
+            'actions.*.legendary_cost' => 'nullable|integer|min:1',
+            'actions.*.attack_kind' => ['nullable', Rule::in(array_keys(NpcAction::ATTACK_KINDS))],
+            'actions.*.attack_range_text' => 'nullable|string|max:255',
+            'actions.*.attack_to_hit' => 'nullable|integer|min:-99|max:99',
+            'actions.*.attack_target' => 'nullable|string|max:255',
+            'actions.*.attack_hit' => 'nullable|string|max:255',
+            'actions.*.attack_hit_2' => 'nullable|string|max:255',
+            // Spellcasting
+            'has_spellcasting' => 'boolean',
+            'spellcasting.ability' => 'required_if:has_spellcasting,true|string',
+            'spellcasting.spell_save_dc' => 'nullable|integer',
+            'spellcasting.spell_attack_bonus' => 'nullable|integer',
+            'spellcasting.caster_level' => 'nullable|string',
+            'spellcasting.spellcasting_notes' => 'nullable|string',
+            'spellcasting.spells' => 'nullable|array',
+        ];
+    }
+
+    /**
+     * Add attack-action-specific validation requirements.
+     */
+    private function validateAttackActions(ValidationValidator $validator, array $actions): void
+    {
+        $validator->after(function (ValidationValidator $validator) use ($actions) {
+            foreach ($actions as $index => $action) {
+                if (($action['action_type'] ?? null) !== NpcAction::TYPE_ATTACK) {
+                    continue;
+                }
+
+                $requiredFields = [
+                    'attack_kind' => 'Attack kind',
+                    'attack_range_text' => 'Range or reach',
+                    'attack_to_hit' => 'To hit',
+                    'attack_target' => 'Target',
+                    'attack_hit' => 'On hit',
+                ];
+
+                foreach ($requiredFields as $field => $label) {
+                    if (blank($action[$field] ?? null)) {
+                        $validator->errors()->add("actions.$index.$field", "{$label} is required for attack actions.");
+                    }
+                }
+            }
+        });
+    }
+
+    /**
      * Normalize note fields based on whether the record is a template.
      */
     private function sanitizeNpcData(array $validated): array
     {
+        $validated['actions'] = $this->sanitizeActions($validated['actions'] ?? []);
+
         if (!($validated['is_template'] ?? false)) {
             return $validated;
         }
@@ -349,5 +354,29 @@ class NpcController extends Controller
         $validated['flaws'] = null;
 
         return $validated;
+    }
+
+    /**
+     * Normalize action payloads so fields only persist on compatible action types.
+     */
+    private function sanitizeActions(array $actions): array
+    {
+        return array_map(function (array $action): array {
+            if (($action['action_type'] ?? null) !== NpcAction::TYPE_LEGENDARY_ACTION) {
+                $action['legendary_cost'] = null;
+            }
+
+            if (($action['action_type'] ?? null) !== NpcAction::TYPE_ATTACK) {
+                foreach (NpcAction::ATTACK_FIELDS as $field) {
+                    $action[$field] = null;
+                }
+
+                return $action;
+            }
+
+            $action['legendary_cost'] = null;
+
+            return $action;
+        }, $actions);
     }
 }
