@@ -14,7 +14,15 @@
 
     <!-- Action Buttons -->
     <div class="d-flex justify-content-end gap-2 mb-3">
-        <a href="{{ route('npcs.create', ['from_template' => $template->id]) }}" class="btn btn-danger">
+        <a
+            href="{{ route('npcs.create', ['from_template' => $template->id]) }}"
+            class="btn btn-danger"
+            data-template-hit-point-link
+            data-template-hit-point-choice-required="{{ $template->requiresTemplateHitPointChoice() ? 'true' : 'false' }}"
+            data-template-name="{{ $template->name }}"
+            data-template-hit-points="{{ $template->hit_points ?? '' }}"
+            data-template-hit-dice="{{ $template->hit_dice ?? '' }}"
+        >
             <i class="bi bi-plus-circle"></i> Create NPC from Template
         </a>
         <a href="{{ route('npcs.edit', $template) }}" class="btn btn-primary">
@@ -109,4 +117,6 @@
         </div>
     </div>
 </div>
+
+@include('templates.partials.hit-point-choice-modal')
 @endsection

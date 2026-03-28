@@ -48,7 +48,15 @@
                                 <a href="{{ route('templates.show', $template) }}" class="btn btn-outline-secondary btn-sm">
                                     View
                                 </a>
-                                <a href="{{ route('npcs.create', ['from_template' => $template->id]) }}" class="btn btn-outline-danger btn-sm">
+                                <a
+                                    href="{{ route('npcs.create', ['from_template' => $template->id]) }}"
+                                    class="btn btn-outline-danger btn-sm"
+                                    data-template-hit-point-link
+                                    data-template-hit-point-choice-required="{{ $template->requiresTemplateHitPointChoice() ? 'true' : 'false' }}"
+                                    data-template-name="{{ $template->name }}"
+                                    data-template-hit-points="{{ $template->hit_points ?? '' }}"
+                                    data-template-hit-dice="{{ $template->hit_dice ?? '' }}"
+                                >
                                     Use Template
                                 </a>
                             </div>
@@ -72,4 +80,6 @@
         </div>
     @endif
 </div>
+
+@include('templates.partials.hit-point-choice-modal')
 @endsection

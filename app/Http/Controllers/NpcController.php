@@ -65,11 +65,18 @@ class NpcController extends Controller
         $templates = Npc::templates()->orderBy('name')->get();
         $sourceNpc = null;
         $defaultIsTemplate = $request->boolean('is_template');
+        $templateHitPointMode = $request->query('template_hit_points');
+
+        if (! in_array($templateHitPointMode, Npc::TEMPLATE_HIT_POINT_MODES, true)) {
+            $templateHitPointMode = null;
+        }
 
         // If creating from template or existing NPC
         if ($request->filled('from_template')) {
             $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting'])
                 ->find($request->from_template);
+
+            $sourceNpc?->applyTemplateHitPointMode($templateHitPointMode);
         } elseif ($request->filled('from_npc')) {
             $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting'])
                 ->find($request->from_npc);

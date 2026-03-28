@@ -85,6 +85,62 @@ class NpcControllerTest extends TestCase
         $this->assertTemplateCheckboxState($response, checked: true);
     }
 
+    public function test_create_marks_template_links_that_need_hit_point_choice(): void
+    {
+        $needsChoice = Npc::factory()->template()->create([
+            'name' => 'Dice Template',
+            'hit_points' => 22,
+            'hit_dice' => '3d8+3',
+        ]);
+        $noChoice = Npc::factory()->template()->create([
+            'name' => 'Flat Template',
+            'hit_points' => 18,
+            'hit_dice' => null,
+        ]);
+
+        $response = $this->get(route('npcs.create'));
+
+        $this->assertTemplateLinkChoiceRequirement($response, $needsChoice, true);
+        $this->assertTemplateLinkChoiceRequirement($response, $noChoice, false);
+    }
+
+    public function test_create_from_template_uses_template_hit_points_when_requested(): void
+    {
+        $template = Npc::factory()->template()->create([
+            'name' => 'Veteran Template',
+            'hit_points' => 27,
+            'hit_dice' => '3d8+6',
+        ]);
+
+        $response = $this->get(route('npcs.create', [
+            'from_template' => $template->id,
+            'template_hit_points' => Npc::TEMPLATE_HIT_POINT_MODE_TEMPLATE,
+        ]));
+
+        $this->assertCreateFormInputValue($response, 'hit_points', '27');
+        $this->assertCreateFormInputValue($response, 'hit_dice', '3d8+6');
+    }
+
+    public function test_create_from_template_can_prefill_rolled_hit_points(): void
+    {
+        $template = Npc::factory()->template()->create([
+            'name' => 'Scout Template',
+            'hit_points' => 99,
+            'hit_dice' => '1d4',
+        ]);
+
+        $response = $this->get(route('npcs.create', [
+            'from_template' => $template->id,
+            'template_hit_points' => Npc::TEMPLATE_HIT_POINT_MODE_ROLL,
+        ]));
+
+        $rolledHitPoints = (int) $this->getCreateFormInputValue($response, 'hit_points');
+
+        $this->assertGreaterThanOrEqual(1, $rolledHitPoints);
+        $this->assertLessThanOrEqual(4, $rolledHitPoints);
+        $this->assertCreateFormInputValue($response, 'hit_dice', '1d4');
+    }
+
     public function test_store_creates_npc(): void
     {
         $response = $this->post(route('npcs.store'), [
@@ -491,14 +547,7 @@ class NpcControllerTest extends TestCase
     {
         $response->assertStatus(200);
 
-        $dom = new DOMDocument();
-        $previousErrors = libxml_use_internal_errors(true);
-
-        $dom->loadHTML($response->getContent());
-
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousErrors);
-
+        $dom = $this->createDomFromResponse($response);
         $checkbox = (new DOMXPath($dom))->query('//*[@id="is_template"]')->item(0);
 
         $this->assertNotNull($checkbox, 'Expected the Save as Template checkbox to be present.');
@@ -509,5 +558,47 @@ class NpcControllerTest extends TestCase
                 ? 'Expected the Save as Template checkbox to be checked.'
                 : 'Expected the Save as Template checkbox to be unchecked.'
         );
+    }
+
+    private function assertTemplateLinkChoiceRequirement(TestResponse $response, Npc $template, bool $requiresChoice): void
+    {
+        $dom = $this->createDomFromResponse($response);
+        $link = (new DOMXPath($dom))
+            ->query(sprintf('//a[@href="%s"]', route('npcs.create', ['from_template' => $template->id])))
+            ->item(0);
+
+        $this->assertNotNull($link, 'Expected the template creation link to be present.');
+        $this->assertSame(
+            $requiresChoice ? 'true' : 'false',
+            $link->attributes->getNamedItem('data-template-hit-point-choice-required')?->nodeValue
+        );
+    }
+
+    private function assertCreateFormInputValue(TestResponse $response, string $fieldId, string $expectedValue): void
+    {
+        $this->assertSame($expectedValue, $this->getCreateFormInputValue($response, $fieldId));
+    }
+
+    private function getCreateFormInputValue(TestResponse $response, string $fieldId): string
+    {
+        $dom = $this->createDomFromResponse($response);
+        $input = (new DOMXPath($dom))->query(sprintf('//*[@id="%s"]', $fieldId))->item(0);
+
+        $this->assertNotNull($input, sprintf('Expected the %s input to be present.', $fieldId));
+
+        return $input->attributes->getNamedItem('value')?->nodeValue ?? '';
+    }
+
+    private function createDomFromResponse(TestResponse $response): DOMDocument
+    {
+        $dom = new DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+
+        $dom->loadHTML($response->getContent());
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        return $dom;
     }
 }
