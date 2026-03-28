@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Npc;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
+use DOMDocument;
+use DOMXPath;
 
 class TemplateControllerTest extends TestCase
 {
@@ -86,6 +89,39 @@ class TemplateControllerTest extends TestCase
         $response->assertSee('The target ignites briefly after the strike.');
     }
 
+    public function test_index_marks_template_links_that_need_hit_point_choice(): void
+    {
+        $needsChoice = Npc::factory()->template()->create([
+            'name' => 'Soldier Template',
+            'hit_points' => 16,
+            'hit_dice' => '3d8+3',
+        ]);
+        $noChoice = Npc::factory()->template()->create([
+            'name' => 'Static Template',
+            'hit_points' => 12,
+            'hit_dice' => null,
+        ]);
+
+        $response = $this->get(route('templates.index'));
+
+        $this->assertTemplateChoiceRequirement($response, $needsChoice, true);
+        $this->assertTemplateChoiceRequirement($response, $noChoice, false);
+    }
+
+    public function test_show_marks_create_npc_link_that_needs_hit_point_choice(): void
+    {
+        $template = Npc::factory()->template()->create([
+            'name' => 'Commander Template',
+            'hit_points' => 45,
+            'hit_dice' => '6d8+12',
+        ]);
+
+        $response = $this->get(route('templates.show', $template));
+
+        $this->assertTemplateChoiceRequirement($response, $template, true);
+        $response->assertSee('Choose Hit Points');
+    }
+
     public function test_show_returns_404_for_non_template(): void
     {
         $npc = Npc::factory()->create();
@@ -93,5 +129,26 @@ class TemplateControllerTest extends TestCase
         $response = $this->get(route('templates.show', $npc));
 
         $response->assertStatus(404);
+    }
+
+    private function assertTemplateChoiceRequirement(TestResponse $response, Npc $template, bool $requiresChoice): void
+    {
+        $dom = new DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+
+        $dom->loadHTML($response->getContent());
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $link = (new DOMXPath($dom))
+            ->query(sprintf('//a[@href="%s"]', route('npcs.create', ['from_template' => $template->id])))
+            ->item(0);
+
+        $this->assertNotNull($link, 'Expected the template creation link to be present.');
+        $this->assertSame(
+            $requiresChoice ? 'true' : 'false',
+            $link->attributes->getNamedItem('data-template-hit-point-choice-required')?->nodeValue
+        );
     }
 }

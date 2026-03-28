@@ -125,6 +125,26 @@ class NpcModelTest extends TestCase
         );
     }
 
+    public function test_template_requires_hit_point_choice_when_both_values_are_present(): void
+    {
+        $template = Npc::factory()->template()->make([
+            'hit_points' => 18,
+            'hit_dice' => '4d8',
+        ]);
+
+        $this->assertTrue($template->requiresTemplateHitPointChoice());
+    }
+
+    public function test_template_does_not_require_hit_point_choice_without_hit_dice(): void
+    {
+        $template = Npc::factory()->template()->make([
+            'hit_points' => 18,
+            'hit_dice' => null,
+        ]);
+
+        $this->assertFalse($template->requiresTemplateHitPointChoice());
+    }
+
     public function test_npc_duplicate_copies_note_fields(): void
     {
         $npc = Npc::factory()->create([

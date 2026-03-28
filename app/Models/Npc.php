@@ -59,6 +59,13 @@ class Npc extends Model
         'is_template' => 'boolean',
     ];
 
+    public const TEMPLATE_HIT_POINT_MODE_TEMPLATE = 'template';
+    public const TEMPLATE_HIT_POINT_MODE_ROLL = 'roll';
+    public const TEMPLATE_HIT_POINT_MODES = [
+        self::TEMPLATE_HIT_POINT_MODE_TEMPLATE,
+        self::TEMPLATE_HIT_POINT_MODE_ROLL,
+    ];
+
     /**
      * D&D 5e Skills mapped to their ability scores.
      */
@@ -271,6 +278,30 @@ class Npc extends Model
         }
 
         return max(1, $total + $modifier);
+    }
+
+    /**
+     * Determine whether this template needs a hit point choice before creating an NPC.
+     */
+    public function requiresTemplateHitPointChoice(): bool
+    {
+        return $this->is_template
+            && filled($this->hit_points)
+            && filled($this->hit_dice);
+    }
+
+    /**
+     * Apply the selected hit point mode when creating an NPC from a template.
+     */
+    public function applyTemplateHitPointMode(?string $mode): void
+    {
+        if (! $this->requiresTemplateHitPointChoice()) {
+            return;
+        }
+
+        if ($mode === self::TEMPLATE_HIT_POINT_MODE_ROLL) {
+            $this->hit_points = self::rollHitPoints($this->hit_dice);
+        }
     }
 
     /**

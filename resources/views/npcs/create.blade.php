@@ -76,7 +76,15 @@
                 @if($templates->count() > 0)
                     <div class="list-group">
                         @foreach($templates as $template)
-                            <a href="{{ route('npcs.create', ['from_template' => $template->id]) }}" class="list-group-item list-group-item-action">
+                            <a
+                                href="{{ route('npcs.create', ['from_template' => $template->id]) }}"
+                                class="list-group-item list-group-item-action"
+                                data-template-hit-point-link
+                                data-template-hit-point-choice-required="{{ $template->requiresTemplateHitPointChoice() ? 'true' : 'false' }}"
+                                data-template-name="{{ $template->name }}"
+                                data-template-hit-points="{{ $template->hit_points ?? '' }}"
+                                data-template-hit-dice="{{ $template->hit_dice ?? '' }}"
+                            >
                                 <strong>{{ $template->name }}</strong>
                                 <br>
                                 <small class="text-muted">{{ $template->npc_type }} • CR {{ $template->challenge_rating ?? '0' }}</small>
@@ -117,4 +125,6 @@
         </div>
     </div>
 </div>
+
+@include('templates.partials.hit-point-choice-modal')
 @endsection
