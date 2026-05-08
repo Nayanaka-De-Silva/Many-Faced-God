@@ -11,7 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as ValidationValidator;
 
@@ -88,9 +90,15 @@ class NpcController extends Controller
     /**
      * Store a newly created NPC.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|Response
     {
-        $validated = $this->validateNpc($request);
+        $validator = $this->makeNpcValidator($request);
+
+        if ($validator->fails()) {
+            return $this->renderCreateValidationFailure($request, $validator);
+        }
+
+        $validated = $this->sanitizeNpcData($validator->validated());
 
         // Roll hit points if hit dice provided but no HP
         if (empty($validated['hit_points']) && !empty($validated['hit_dice'])) {
@@ -147,9 +155,15 @@ class NpcController extends Controller
     /**
      * Update the specified NPC.
      */
-    public function update(Request $request, Npc $npc): RedirectResponse
+    public function update(Request $request, Npc $npc): RedirectResponse|Response
     {
-        $validated = $this->validateNpc($request);
+        $validator = $this->makeNpcValidator($request);
+
+        if ($validator->fails()) {
+            return $this->renderUpdateValidationFailure($request, $npc, $validator);
+        }
+
+        $validated = $this->sanitizeNpcData($validator->validated());
 
         $npc->update($validated);
 
@@ -243,12 +257,59 @@ class NpcController extends Controller
     /**
      * Validate the NPC payload.
      */
-    private function validateNpc(Request $request): array
+    private function makeNpcValidator(Request $request): ValidationValidator
     {
         $validator = Validator::make($request->all(), $this->npcValidationRules());
         $this->validateAttackActions($validator, $request->input('actions', []));
 
-        return $this->sanitizeNpcData($validator->validate());
+        return $validator;
+    }
+
+    /**
+     * Render the create form directly on validation failure to avoid flashing the
+     * full NPC payload into cookie-backed sessions.
+     */
+    private function renderCreateValidationFailure(Request $request, ValidationValidator $validator): Response
+    {
+        return $this->renderValidationFailure('npcs.create', [
+            'folders' => Folder::orderBy('name')->get(),
+            'templates' => Npc::templates()->orderBy('name')->get(),
+            'sourceNpc' => null,
+            'defaultIsTemplate' => $request->boolean('is_template'),
+            'formData' => $this->npcFormData($request),
+        ], $validator);
+    }
+
+    /**
+     * Render the edit form directly on validation failure to avoid oversized
+     * redirect/session headers while preserving the submitted data.
+     */
+    private function renderUpdateValidationFailure(Request $request, Npc $npc, ValidationValidator $validator): Response
+    {
+        return $this->renderValidationFailure('npcs.edit', [
+            'npc' => $npc,
+            'folders' => Folder::orderBy('name')->get(),
+            'formData' => $this->npcFormData($request),
+        ], $validator);
+    }
+
+    /**
+     * Build a validation response without relying on flashed old input.
+     */
+    private function renderValidationFailure(string $view, array $data, ValidationValidator $validator): Response
+    {
+        $errors = new ViewErrorBag();
+        $errors->put('default', $validator->errors());
+
+        return response()->view($view, $data + ['errors' => $errors], 422);
+    }
+
+    /**
+     * Keep only form fields that belong to the NPC editor payload.
+     */
+    private function npcFormData(Request $request): array
+    {
+        return $request->except(['_token', '_method']);
     }
 
     /**

@@ -239,31 +239,46 @@ class NpcControllerTest extends TestCase
 
     public function test_store_validates_required_attack_action_fields(): void
     {
-        $response = $this->from(route('npcs.create'))->post(route('npcs.store'), [
-            'name' => 'Broken Attack Action NPC',
+        config()->set('session.driver', 'cookie');
+
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'Broken Attack Action Template',
+            'is_template' => '1',
+            'notes' => str_repeat('Template notes. ', 160),
+            'languages' => '',
+            'languages_text' => 'Common, Elvish',
             'strength' => 10,
             'dexterity' => 10,
             'constitution' => 10,
             'intelligence' => 10,
             'wisdom' => 10,
             'charisma' => 10,
+            'traits' => [
+                [
+                    'name' => 'Overloaded Trait',
+                    'description' => str_repeat('Trait details. ', 120),
+                ],
+            ],
             'actions' => [
                 [
                     'name' => 'Incomplete Attack',
-                    'description' => 'Missing important details.',
+                    'description' => str_repeat('Missing important details. ', 120),
                     'action_type' => NpcAction::TYPE_ATTACK,
                 ],
             ],
         ]);
 
-        $response->assertRedirect(route('npcs.create'));
-        $response->assertSessionHasErrors([
-            'actions.0.attack_kind',
-            'actions.0.attack_range_text',
-            'actions.0.attack_to_hit',
-            'actions.0.attack_target',
-            'actions.0.attack_hit',
-        ]);
+        $response->assertStatus(422);
+        $response->assertSee('Attack kind is required for attack actions.');
+        $response->assertSee('Range or reach is required for attack actions.');
+        $response->assertSee('To hit is required for attack actions.');
+        $response->assertSee('Target is required for attack actions.');
+        $response->assertSee('On hit is required for attack actions.');
+        $this->assertTemplateCheckboxState($response, checked: true, expectedStatus: 422);
+        $this->assertCreateFormInputValue($response, 'name', 'Broken Attack Action Template');
+        $this->assertCreateFormInputValue($response, 'languages_text', 'Common, Elvish');
+        $this->assertFormFieldValueByName($response, 'traits[0][name]', 'Overloaded Trait');
+        $this->assertFormFieldValueByName($response, 'actions[0][name]', 'Incomplete Attack');
     }
 
     public function test_store_creates_npc_with_notes_and_character_notes(): void
@@ -328,7 +343,8 @@ class NpcControllerTest extends TestCase
     {
         $response = $this->post(route('npcs.store'), []);
 
-        $response->assertSessionHasErrors(['name']);
+        $response->assertStatus(422);
+        $response->assertSee('The name field is required.');
     }
 
     public function test_store_rolls_hit_points_from_hit_dice(): void
@@ -499,6 +515,38 @@ class NpcControllerTest extends TestCase
         ]);
     }
 
+    public function test_update_renders_edit_form_without_redirect_when_attack_action_validation_fails(): void
+    {
+        config()->set('session.driver', 'cookie');
+
+        $npc = Npc::factory()->template()->create(['name' => 'Guardian Template']);
+
+        $response = $this->put(route('npcs.update', $npc), [
+            'name' => 'Guardian Template',
+            'is_template' => '1',
+            'notes' => str_repeat('Template notes. ', 160),
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'actions' => [
+                [
+                    'name' => 'Broken Volley',
+                    'description' => str_repeat('Still missing attack fields. ', 120),
+                    'action_type' => NpcAction::TYPE_ATTACK,
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertSee('Edit Guardian Template');
+        $response->assertSee('Attack kind is required for attack actions.');
+        $this->assertTemplateCheckboxState($response, checked: true, expectedStatus: 422);
+        $this->assertFormFieldValueByName($response, 'actions[0][name]', 'Broken Volley');
+    }
+
     public function test_destroy_deletes_npc(): void
     {
         $npc = Npc::factory()->create();
@@ -543,9 +591,9 @@ class NpcControllerTest extends TestCase
         $response->assertDontSee('Third note sentence.');
     }
 
-    private function assertTemplateCheckboxState(TestResponse $response, bool $checked): void
+    private function assertTemplateCheckboxState(TestResponse $response, bool $checked, int $expectedStatus = 200): void
     {
-        $response->assertStatus(200);
+        $response->assertStatus($expectedStatus);
 
         $dom = $this->createDomFromResponse($response);
         $checkbox = (new DOMXPath($dom))->query('//*[@id="is_template"]')->item(0);
@@ -577,6 +625,20 @@ class NpcControllerTest extends TestCase
     private function assertCreateFormInputValue(TestResponse $response, string $fieldId, string $expectedValue): void
     {
         $this->assertSame($expectedValue, $this->getCreateFormInputValue($response, $fieldId));
+    }
+
+    private function assertFormFieldValueByName(TestResponse $response, string $fieldName, string $expectedValue): void
+    {
+        $dom = $this->createDomFromResponse($response);
+        $field = (new DOMXPath($dom))->query(sprintf('//*[@name="%s"]', $fieldName))->item(0);
+
+        $this->assertNotNull($field, sprintf('Expected the %s field to be present.', $fieldName));
+
+        $actualValue = $field->nodeName === 'textarea'
+            ? $field->textContent
+            : ($field->attributes->getNamedItem('value')?->nodeValue ?? '');
+
+        $this->assertSame($expectedValue, $actualValue);
     }
 
     private function getCreateFormInputValue(TestResponse $response, string $fieldId): string

@@ -1,7 +1,13 @@
 @php
     $npc = $npc ?? null;
     $defaultIsTemplate = $defaultIsTemplate ?? null;
-    $isTemplate = old('is_template', $defaultIsTemplate ?? $npc?->is_template);
+    $formData = $formData ?? null;
+    $formValue = function (string $key, $default = null) use ($formData) {
+        return $formData !== null
+            ? data_get($formData, $key, $default)
+            : old($key, $default);
+    };
+    $isTemplate = $formValue('is_template', $defaultIsTemplate ?? $npc?->is_template);
 @endphp
 
 @if ($errors->any())
@@ -24,20 +30,20 @@
             <div class="col-md-6">
                 <label for="name" class="form-label">Name *</label>
                 <input type="text" name="name" id="name" class="form-control" required
-                    value="{{ old('name', $npc?->name) }}">
+                    value="{{ $formValue('name', $npc?->name) }}">
             </div>
             <div class="col-md-6">
                 <label for="npc_type" class="form-label">NPC Type</label>
                 <input type="text" name="npc_type" id="npc_type" class="form-control" 
                     placeholder="e.g., Medium Humanoid"
-                    value="{{ old('npc_type', $npc?->npc_type) }}">
+                    value="{{ $formValue('npc_type', $npc?->npc_type) }}">
             </div>
             <div class="col-md-6">
                 <label for="alignment" class="form-label">Alignment</label>
                 <select name="alignment" id="alignment" class="form-select">
                     <option value="">-- Select --</option>
                     @foreach(\App\Models\Npc::ALIGNMENTS as $alignment)
-                        <option value="{{ $alignment }}" {{ old('alignment', $npc?->alignment) == $alignment ? 'selected' : '' }}>
+                        <option value="{{ $alignment }}" {{ $formValue('alignment', $npc?->alignment) == $alignment ? 'selected' : '' }}>
                             {{ $alignment }}
                         </option>
                     @endforeach
@@ -48,7 +54,7 @@
                 <select name="folder_id" id="folder_id" class="form-select">
                     <option value="">-- No Folder --</option>
                     @foreach($folders as $folder)
-                        <option value="{{ $folder->id }}" {{ old('folder_id', $npc?->folder_id) == $folder->id ? 'selected' : '' }}>
+                        <option value="{{ $folder->id }}" {{ $formValue('folder_id', $npc?->folder_id) == $folder->id ? 'selected' : '' }}>
                             {{ $folder->name }}
                         </option>
                     @endforeach
@@ -75,7 +81,7 @@
         <div class="mb-3">
             <label for="notes" class="form-label">General Notes</label>
             <textarea name="notes" id="notes" class="form-control" rows="4"
-                placeholder="Add general DM notes for this NPC or template.">{{ old('notes', $npc?->notes) }}</textarea>
+                placeholder="Add general DM notes for this NPC or template.">{{ $formValue('notes', $npc?->notes) }}</textarea>
             <small class="text-muted">Templates can store general notes. Character notes below are NPC-only.</small>
         </div>
 
@@ -84,22 +90,22 @@
                 <div class="col-md-6">
                     <label for="personality_traits" class="form-label">Personality Traits</label>
                     <textarea name="personality_traits" id="personality_traits" class="form-control" rows="3"
-                        placeholder="Distinctive mannerisms, quirks, or habits.">{{ old('personality_traits', $npc?->personality_traits) }}</textarea>
+                        placeholder="Distinctive mannerisms, quirks, or habits.">{{ $formValue('personality_traits', $npc?->personality_traits) }}</textarea>
                 </div>
                 <div class="col-md-6">
                     <label for="ideals" class="form-label">Ideals</label>
                     <textarea name="ideals" id="ideals" class="form-control" rows="3"
-                        placeholder="Core beliefs or principles.">{{ old('ideals', $npc?->ideals) }}</textarea>
+                        placeholder="Core beliefs or principles.">{{ $formValue('ideals', $npc?->ideals) }}</textarea>
                 </div>
                 <div class="col-md-6">
                     <label for="bonds" class="form-label">Bonds</label>
                     <textarea name="bonds" id="bonds" class="form-control" rows="3"
-                        placeholder="People, places, or causes this NPC cares about.">{{ old('bonds', $npc?->bonds) }}</textarea>
+                        placeholder="People, places, or causes this NPC cares about.">{{ $formValue('bonds', $npc?->bonds) }}</textarea>
                 </div>
                 <div class="col-md-6">
                     <label for="flaws" class="form-label">Flaws</label>
                     <textarea name="flaws" id="flaws" class="form-control" rows="3"
-                        placeholder="Weaknesses, vices, or blind spots.">{{ old('flaws', $npc?->flaws) }}</textarea>
+                        placeholder="Weaknesses, vices, or blind spots.">{{ $formValue('flaws', $npc?->flaws) }}</textarea>
                 </div>
             </div>
         </div>
@@ -116,37 +122,37 @@
             <div class="col-md-3">
                 <label for="armor_class" class="form-label">Armor Class</label>
                 <input type="number" name="armor_class" id="armor_class" class="form-control" min="0"
-                    value="{{ old('armor_class', $npc?->armor_class ?? 10) }}">
+                    value="{{ $formValue('armor_class', $npc?->armor_class ?? 10) }}">
             </div>
             <div class="col-md-3">
                 <label for="armor_type" class="form-label">Armor Type</label>
                 <input type="text" name="armor_type" id="armor_type" class="form-control" 
                     placeholder="e.g., Chain Mail"
-                    value="{{ old('armor_type', $npc?->armor_type) }}">
+                    value="{{ $formValue('armor_type', $npc?->armor_type) }}">
             </div>
             <div class="col-md-3">
                 <label for="hit_points" class="form-label">Hit Points</label>
                 <input type="number" name="hit_points" id="hit_points" class="form-control" min="0"
-                    value="{{ old('hit_points', $npc?->hit_points) }}">
+                    value="{{ $formValue('hit_points', $npc?->hit_points) }}">
             </div>
             <div class="col-md-3">
                 <label for="hit_dice" class="form-label">Hit Dice</label>
                 <input type="text" name="hit_dice" id="hit_dice" class="form-control" 
                     placeholder="e.g., 4d8+8"
-                    value="{{ old('hit_dice', $npc?->hit_dice) }}">
+                    value="{{ $formValue('hit_dice', $npc?->hit_dice) }}">
             </div>
             <div class="col-md-4">
                 <label for="speed" class="form-label">Speed</label>
                 <input type="text" name="speed" id="speed" class="form-control" 
                     placeholder="e.g., 30 ft., fly 60 ft."
-                    value="{{ old('speed', $npc?->speed ?? '30 ft.') }}">
+                    value="{{ $formValue('speed', $npc?->speed ?? '30 ft.') }}">
             </div>
             <div class="col-md-4">
                 <label for="challenge_rating" class="form-label">Challenge Rating</label>
                 <select name="challenge_rating" id="challenge_rating" class="form-select">
                     <option value="">-- Select --</option>
                     @foreach(['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] as $cr)
-                        <option value="{{ $cr }}" {{ old('challenge_rating', $npc?->challenge_rating) == $cr ? 'selected' : '' }}>
+                        <option value="{{ $cr }}" {{ $formValue('challenge_rating', $npc?->challenge_rating) == $cr ? 'selected' : '' }}>
                             {{ $cr }}
                         </option>
                     @endforeach
@@ -155,7 +161,7 @@
             <div class="col-md-4">
                 <label for="proficiency_bonus" class="form-label">Proficiency Bonus</label>
                 <input type="number" name="proficiency_bonus" id="proficiency_bonus" class="form-control" min="0"
-                    value="{{ old('proficiency_bonus', $npc?->proficiency_bonus ?? 2) }}">
+                    value="{{ $formValue('proficiency_bonus', $npc?->proficiency_bonus ?? 2) }}">
             </div>
         </div>
     </div>
@@ -172,7 +178,7 @@
                 <div class="col-md-2">
                     <label for="{{ $attr }}" class="form-label text-center d-block">{{ $label }}</label>
                     <input type="number" name="{{ $attr }}" id="{{ $attr }}" class="form-control text-center" 
-                        min="1" max="30" value="{{ old($attr, $npc?->$attr ?? 10) }}">
+                        min="1" max="30" value="{{ $formValue($attr, $npc?->$attr ?? 10) }}">
                 </div>
             @endforeach
         </div>
@@ -188,7 +194,7 @@
         <div class="row">
             <div class="col-md-6">
                 <h6>Saving Throw Proficiencies</h6>
-                @php $savingThrows = old('saving_throw_proficiencies', $npc?->saving_throw_proficiencies ?? []); @endphp
+                @php $savingThrows = $formValue('saving_throw_proficiencies', $npc?->saving_throw_proficiencies ?? []); @endphp
                 @foreach(['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'] as $save)
                     <div class="form-check form-check-inline">
                         <input type="checkbox" name="saving_throw_proficiencies[]" 
@@ -202,7 +208,7 @@
             </div>
             <div class="col-md-6">
                 <h6>Skill Proficiencies</h6>
-                @php $skills = old('skill_proficiencies', $npc?->skill_proficiencies ?? []); @endphp
+                @php $skills = $formValue('skill_proficiencies', $npc?->skill_proficiencies ?? []); @endphp
                 <div class="row">
                     @foreach(array_keys(\App\Models\Npc::SKILLS) as $skill)
                         <div class="col-6">
@@ -232,7 +238,7 @@
             @foreach(['damage_vulnerabilities' => 'Vulnerabilities', 'damage_resistances' => 'Resistances', 'damage_immunities' => 'Immunities'] as $field => $label)
                 <div class="col-md-4 mb-3">
                     <h6>Damage {{ $label }}</h6>
-                    @php $selected = old($field, $npc?->$field ?? []); @endphp
+                    @php $selected = $formValue($field, $npc?->$field ?? []); @endphp
                     <select name="{{ $field }}[]" class="form-select" multiple size="6">
                         @foreach(\App\Models\Npc::DAMAGE_TYPES as $type)
                             <option value="{{ $type }}" {{ in_array($type, $selected) ? 'selected' : '' }}>
@@ -247,7 +253,7 @@
         <div class="row">
             <div class="col-md-12">
                 <h6>Condition Immunities</h6>
-                @php $conditions = old('condition_immunities', $npc?->condition_immunities ?? []); @endphp
+                @php $conditions = $formValue('condition_immunities', $npc?->condition_immunities ?? []); @endphp
                 <div class="row">
                     @foreach(\App\Models\Npc::CONDITIONS as $condition)
                         <div class="col-md-3">
@@ -277,7 +283,7 @@
             <div class="col-md-6">
                 <h6>Senses</h6>
                 <div id="sensesContainer">
-                    @php $senses = old('senses', $npc?->senses ?? []); @endphp
+                    @php $senses = $formValue('senses', $npc?->senses ?? []); @endphp
                     @forelse($senses as $index => $sense)
                         <div class="input-group mb-2 sense-row">
                             <input type="text" name="senses[{{ $index }}][type]" class="form-control" 
@@ -298,12 +304,19 @@
             </div>
             <div class="col-md-6">
                 <h6>Languages</h6>
-                @php $languages = old('languages', $npc?->languages ?? []); @endphp
+                @php
+                    $languages = $formValue('languages', $npc?->languages ?? []);
+
+                    if (! is_array($languages)) {
+                        $languages = filled($languages) ? [$languages] : [];
+                    }
+
+                    $languagesText = $formValue('languages_text', implode(', ', $languages));
+                @endphp
                 <input type="text" name="languages_text" id="languages_text" class="form-control" 
                     placeholder="Common, Elvish, Dwarvish"
-                    value="{{ implode(', ', $languages) }}">
+                    value="{{ $languagesText }}">
                 <small class="text-muted">Separate languages with commas</small>
-                <input type="hidden" name="languages" id="languages_hidden">
             </div>
         </div>
     </div>
@@ -316,7 +329,7 @@
     </div>
     <div class="card-body">
         <div id="traitsContainer">
-            @php $traits = old('traits', $npc?->traits?->toArray() ?? []); @endphp
+            @php $traits = $formValue('traits', $npc?->traits?->toArray() ?? []); @endphp
             @forelse($traits as $index => $trait)
                 <div class="trait-row border rounded p-3 mb-3">
                     <div class="row g-2">
@@ -347,7 +360,7 @@
     </div>
     <div class="card-body">
         <div id="actionsContainer">
-            @php $actions = old('actions', $npc?->actions?->toArray() ?? []); @endphp
+            @php $actions = $formValue('actions', $npc?->actions?->toArray() ?? []); @endphp
             @forelse($actions as $index => $action)
                 <div class="action-row border rounded p-3 mb-3">
                     <div class="row g-2">
@@ -424,15 +437,15 @@
         <i class="bi bi-magic"></i> Spellcasting
     </div>
     <div class="card-body">
-        @php $spellcasting = old('spellcasting', $npc?->spellcasting?->toArray() ?? []); @endphp
+        @php $spellcasting = $formValue('spellcasting', $npc?->spellcasting?->toArray() ?? []); @endphp
         <div class="form-check mb-3">
             <input type="hidden" name="has_spellcasting" value="0">
             <input type="checkbox" name="has_spellcasting" id="has_spellcasting" class="form-check-input" value="1"
-                {{ !empty($spellcasting) || old('has_spellcasting') ? 'checked' : '' }}>
+                {{ !empty($spellcasting) || $formValue('has_spellcasting') ? 'checked' : '' }}>
             <label for="has_spellcasting" class="form-check-label">This NPC has spellcasting abilities</label>
         </div>
         
-        <div id="spellcastingSection" style="{{ !empty($spellcasting) || old('has_spellcasting') ? '' : 'display:none;' }}">
+        <div id="spellcastingSection" style="{{ !empty($spellcasting) || $formValue('has_spellcasting') ? '' : 'display:none;' }}">
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Spellcasting Ability</label>
