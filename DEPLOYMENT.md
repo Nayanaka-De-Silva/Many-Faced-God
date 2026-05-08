@@ -76,7 +76,7 @@ DB_PASSWORD=<strong-random-password>
 MYSQL_ROOT_PASSWORD=<strong-random-root-password>
 
 # Session Configuration
-SESSION_DRIVER=file         # Or database/redis for scaling
+SESSION_DRIVER=file         # Use file/database/redis for this app; avoid cookie for the large NPC editor form
 SESSION_DOMAIN=yourdomain.com  # Your domain
 
 # Logging
@@ -182,7 +182,7 @@ Access the application:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SESSION_DRIVER` | file | Session storage (file/database/redis) |
+| `SESSION_DRIVER` | file | Session storage (file/database/redis). Avoid `cookie` for this app because large NPC form validation payloads can overflow response headers. |
 | `SESSION_DOMAIN` | null | Session domain cookie |
 | `CACHE_STORE` | file | Cache backend (file/database/redis) |
 
@@ -299,6 +299,8 @@ docker-compose exec -T app php artisan cache:clear
 docker-compose exec -T app php artisan config:clear
 docker-compose exec -T app php artisan view:clear
 ```
+
+If the server is using `SESSION_DRIVER=cookie`, switch to `file`, `database`, or `redis` before troubleshooting large NPC/template form failures. The NPC editor can submit enough validation state to overflow response headers when the entire session payload is stored in a cookie. The repository already includes the `sessions` table migration, so `SESSION_DRIVER=database` is an additive, non-destructive option when you want shared server-side session storage.
 
 ## Maintenance
 
