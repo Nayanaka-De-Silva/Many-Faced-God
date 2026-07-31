@@ -53,7 +53,7 @@ class NpcController extends Controller
         }
 
         $npcs = $query->paginate(25);
-        $folders = Folder::orderBy('name')->get();
+        $folders = Folder::treeOptions();
 
         return view('npcs.index', compact('npcs', 'folders'));
     }
@@ -63,7 +63,7 @@ class NpcController extends Controller
      */
     public function create(Request $request): View
     {
-        $folders = Folder::orderBy('name')->get();
+        $folders = Folder::treeOptions();
         $templates = Npc::templates()->orderBy('name')->get();
         $sourceNpc = null;
         $defaultIsTemplate = $request->boolean('is_template');
@@ -137,8 +137,9 @@ class NpcController extends Controller
     public function show(Npc $npc): View
     {
         $npc->load(['folder', 'traits', 'actions', 'spellcasting']);
-        
-        return view('npcs.show', compact('npc'));
+        $folders = Folder::treeOptions();
+
+        return view('npcs.show', compact('npc', 'folders'));
     }
 
     /**
@@ -147,7 +148,7 @@ class NpcController extends Controller
     public function edit(Npc $npc): View
     {
         $npc->load(['traits', 'actions', 'spellcasting']);
-        $folders = Folder::orderBy('name')->get();
+        $folders = Folder::treeOptions();
         
         return view('npcs.edit', compact('npc', 'folders'));
     }
@@ -272,7 +273,7 @@ class NpcController extends Controller
     private function renderCreateValidationFailure(Request $request, ValidationValidator $validator): Response
     {
         return $this->renderValidationFailure('npcs.create', [
-            'folders' => Folder::orderBy('name')->get(),
+            'folders' => Folder::treeOptions(),
             'templates' => Npc::templates()->orderBy('name')->get(),
             'sourceNpc' => null,
             'defaultIsTemplate' => $request->boolean('is_template'),
@@ -288,7 +289,7 @@ class NpcController extends Controller
     {
         return $this->renderValidationFailure('npcs.edit', [
             'npc' => $npc,
-            'folders' => Folder::orderBy('name')->get(),
+            'folders' => Folder::treeOptions(),
             'formData' => $this->npcFormData($request),
         ], $validator);
     }

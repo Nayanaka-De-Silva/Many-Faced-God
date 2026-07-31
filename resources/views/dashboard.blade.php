@@ -115,9 +115,9 @@
                 </div>
                 <div class="card-body">
                     @if($recentNpcs->count() > 0)
-                        <div class="row">
+                        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
                             @foreach($recentNpcs as $npc)
-                                <div class="col-md-4 col-lg-3 mb-3">
+                                <div class="col">
                                     <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none">
                                         <div class="npc-card card h-100">
                                             <div class="card-header">

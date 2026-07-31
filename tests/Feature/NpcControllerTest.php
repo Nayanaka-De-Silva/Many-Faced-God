@@ -7,6 +7,7 @@ use App\Models\Folder;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 use DOMDocument;
@@ -575,6 +576,29 @@ class NpcControllerTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseCount('npcs', 1);
+    }
+
+    public function test_npc_index_does_not_query_folders_per_npc(): void
+    {
+        $folder = Folder::factory()->create(['name' => 'Test Folder']);
+        Npc::factory()->inFolder($folder)->create(['name' => 'NPC 1']);
+
+        DB::enableQueryLog();
+        $this->get(route('npcs.index'));
+        $countWith1 = count(DB::getQueryLog());
+
+        // Create 4 more NPCs; flush right before the second hit to exclude
+        // factory INSERT queries from the count (logging stays on during creates).
+        Npc::factory()->inFolder($folder)->create(['name' => 'NPC 2']);
+        Npc::factory()->inFolder($folder)->create(['name' => 'NPC 3']);
+        Npc::factory()->inFolder($folder)->create(['name' => 'NPC 4']);
+        Npc::factory()->inFolder($folder)->create(['name' => 'NPC 5']);
+
+        DB::flushQueryLog();
+        $this->get(route('npcs.index'));
+        $countWith5 = count(DB::getQueryLog());
+
+        $this->assertEquals($countWith1, $countWith5);
     }
 
     public function test_index_shows_notes_preview_without_later_sentences(): void

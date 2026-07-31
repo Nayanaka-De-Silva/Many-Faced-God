@@ -400,6 +400,10 @@
             filter: invert(1);
         }
 
+        /* Folder tree indentation */
+        .folder-tree-children { padding-left: 1rem; border-left: 1px solid var(--bs-border-color); }
+        @media (min-width: 768px) { .folder-tree-children { padding-left: 1.5rem; } }
+
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {

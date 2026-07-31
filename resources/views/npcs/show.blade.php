@@ -283,12 +283,9 @@
                         <label for="folder_id" class="form-label">Select Folder</label>
                         <select class="form-select" name="folder_id" id="folder_id">
                             <option value="">Root (No Folder)</option>
-                            @php
-                                $folders = \App\Models\Folder::orderBy('name')->get();
-                            @endphp
-                            @foreach($folders as $folder)
-                                <option value="{{ $folder->id }}" {{ $npc->folder_id === $folder->id ? 'selected' : '' }}>
-                                    {{ $folder->name }}
+                            @foreach($folders as $id => $label)
+                                <option value="{{ $id }}" {{ $npc->folder_id === $id ? 'selected' : '' }}>
+                                    {{ $label }}
                                 </option>
                             @endforeach
                         </select>
