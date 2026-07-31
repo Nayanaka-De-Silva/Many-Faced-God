@@ -38,7 +38,7 @@ class NpcFactory extends Factory
             'damage_resistances' => [],
             'damage_immunities' => [],
             'condition_immunities' => [],
-            'senses' => [['type' => 'Darkvision', 'range' => 60]],
+            'senses' => [['type' => 'Darkvision', 'range' => 60, 'category' => 'ft']],
             'languages' => ['Common'],
             'challenge_rating' => fake()->randomElement(['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5']),
             'proficiency_bonus' => 2,

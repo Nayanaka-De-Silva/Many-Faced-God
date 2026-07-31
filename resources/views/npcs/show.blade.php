@@ -119,10 +119,7 @@
                     @if($npc->senses && count($npc->senses) > 0)
                         <p>
                             <strong>Senses</strong>
-                            @foreach($npc->senses as $sense)
-                                {{ $sense['type'] }} {{ $sense['range'] }} ft.{{ !$loop->last ? ',' : '' }}
-                            @endforeach
-                            , passive Perception {{ $npc->passive_perception }}
+                            {{ implode(', ', $npc->formatted_senses) }}, passive Perception {{ $npc->passive_perception }}
                         </p>
                     @else
                         <p><strong>Senses</strong> passive Perception {{ $npc->passive_perception }}</p>

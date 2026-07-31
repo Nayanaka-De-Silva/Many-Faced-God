@@ -286,16 +286,26 @@
                     @php $senses = $formValue('senses', $npc?->senses ?? []); @endphp
                     @forelse($senses as $index => $sense)
                         <div class="input-group mb-2 sense-row">
-                            <input type="text" name="senses[{{ $index }}][type]" class="form-control" 
+                            <input type="text" name="senses[{{ $index }}][type]" class="form-control"
                                 placeholder="Type (e.g., Darkvision)" value="{{ $sense['type'] ?? '' }}">
-                            <input type="number" name="senses[{{ $index }}][range]" class="form-control" 
-                                placeholder="Range (ft)" value="{{ $sense['range'] ?? '' }}" style="max-width: 100px;">
+                            <select name="senses[{{ $index }}][category]" class="form-select" style="max-width: 80px;">
+                                @foreach(\App\Models\Npc::SENSE_CATEGORIES as $key => $label)
+                                    <option value="{{ $key }}" {{ ($sense['category'] ?? 'ft') === $key ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" name="senses[{{ $index }}][range]" class="form-control"
+                                placeholder="Value" value="{{ $sense['range'] ?? '' }}" style="max-width: 100px;">
                             <button type="button" class="btn btn-outline-danger remove-sense">×</button>
                         </div>
                     @empty
                         <div class="input-group mb-2 sense-row">
                             <input type="text" name="senses[0][type]" class="form-control" placeholder="Type (e.g., Darkvision)">
-                            <input type="number" name="senses[0][range]" class="form-control" placeholder="Range (ft)" style="max-width: 100px;">
+                            <select name="senses[0][category]" class="form-select" style="max-width: 80px;">
+                                @foreach(\App\Models\Npc::SENSE_CATEGORIES as $key => $label)
+                                    <option value="{{ $key }}" {{ $key === 'ft' ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <input type="text" name="senses[0][range]" class="form-control" placeholder="Value" style="max-width: 100px;">
                             <button type="button" class="btn btn-outline-danger remove-sense">×</button>
                         </div>
                     @endforelse
@@ -584,7 +594,12 @@
         const html = `
             <div class="input-group mb-2 sense-row">
                 <input type="text" name="senses[${senseIndex}][type]" class="form-control" placeholder="Type (e.g., Darkvision)">
-                <input type="number" name="senses[${senseIndex}][range]" class="form-control" placeholder="Range (ft)" style="max-width: 100px;">
+                <select name="senses[${senseIndex}][category]" class="form-select" style="max-width: 80px;">
+                    <option value="ft" selected>ft.</option>
+                    <option value="dc">DC</option>
+                    <option value="other">Other</option>
+                </select>
+                <input type="text" name="senses[${senseIndex}][range]" class="form-control" placeholder="Value" style="max-width: 100px;">
                 <button type="button" class="btn btn-outline-danger remove-sense">×</button>
             </div>
         `;

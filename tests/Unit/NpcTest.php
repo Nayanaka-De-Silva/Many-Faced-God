@@ -120,4 +120,15 @@ class NpcTest extends TestCase
         $this->assertTrue($npc->hasCharacterNotes());
         $this->assertFalse((new Npc())->hasCharacterNotes());
     }
+
+    public function test_sense_categories_constant_has_expected_keys(): void
+    {
+        $this->assertArrayHasKey('ft', Npc::SENSE_CATEGORIES);
+        $this->assertArrayHasKey('dc', Npc::SENSE_CATEGORIES);
+        $this->assertArrayHasKey('other', Npc::SENSE_CATEGORIES);
+        $this->assertCount(3, Npc::SENSE_CATEGORIES);
+        $this->assertEquals('ft.', Npc::SENSE_CATEGORIES['ft']);
+        $this->assertEquals('DC', Npc::SENSE_CATEGORIES['dc']);
+        $this->assertEquals('Other', Npc::SENSE_CATEGORIES['other']);
+    }
 }

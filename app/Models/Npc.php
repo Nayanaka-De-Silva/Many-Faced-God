@@ -134,6 +134,15 @@ class Npc extends Model
     ];
 
     /**
+     * Sense measurement categories: key is the stored value, value is the human label.
+     */
+    public const SENSE_CATEGORIES = [
+        'ft' => 'ft.',
+        'dc' => 'DC',
+        'other' => 'Other',
+    ];
+
+    /**
      * D&D 5e Alignments.
      */
     public const ALIGNMENTS = [
@@ -256,6 +265,27 @@ class Npc extends Model
         $bonus = in_array('Perception', $skills) ? $proficiencyBonus : 0;
         
         return 10 + $this->wisdom_modifier + $bonus;
+    }
+
+    /**
+     * Format each sense entry for display using its category.
+     * Legacy rows with no category key default to 'ft' behaviour.
+     *
+     * @return string[]
+     */
+    public function getFormattedSensesAttribute(): array
+    {
+        return array_map(function (array $sense): string {
+            $type = $sense['type'] ?? '';
+            $range = $sense['range'] ?? '';
+            $category = $sense['category'] ?? 'ft';
+
+            return match ($category) {
+                'ft' => trim("{$type} {$range}") . ' ft.',
+                'dc', 'other' => trim("{$type} {$range}"),
+                default => trim("{$type} {$range}") . ' ft.',
+            };
+        }, $this->senses ?? []);
     }
 
     /**
