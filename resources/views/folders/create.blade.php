@@ -31,9 +31,9 @@
                             <label for="parent_id" class="form-label">Parent Folder</label>
                             <select name="parent_id" id="parent_id" class="form-select">
                                 <option value="">-- None (Root Folder) --</option>
-                                @foreach($parentFolders as $folder)
-                                    <option value="{{ $folder->id }}" {{ (old('parent_id') ?? $parentId) == $folder->id ? 'selected' : '' }}>
-                                        {{ $folder->name }}
+                                @foreach($parentFolders as $id => $label)
+                                    <option value="{{ $id }}" {{ (old('parent_id') ?? $parentId) == $id ? 'selected' : '' }}>
+                                        {{ $label }}
                                     </option>
                                 @endforeach
                             </select>

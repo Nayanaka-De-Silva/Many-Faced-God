@@ -26,9 +26,9 @@
                         <option value="root" {{ request('folder_id') == 'root' ? 'selected' : '' }}>
                             Root (Unfoldered)
                         </option>
-                        @foreach($folders as $folder)
-                            <option value="{{ $folder->id }}" {{ request('folder_id') == $folder->id ? 'selected' : '' }}>
-                                {{ $folder->name }}
+                        @foreach($folders as $id => $label)
+                            <option value="{{ $id }}" {{ request('folder_id') == $id ? 'selected' : '' }}>
+                                {{ $label }}
                             </option>
                         @endforeach
                     </select>
@@ -66,9 +66,9 @@
 
     <!-- NPC Cards Grid -->
     @if($npcs->count() > 0)
-        <div class="row">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
             @foreach($npcs as $npc)
-                <div class="col-md-4 col-lg-3 mb-4">
+                <div class="col">
                     <div class="npc-card card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none" style="flex: 1;">
@@ -174,12 +174,9 @@
                                             <label for="folder_id_{{ $npc->id }}" class="form-label">Select Folder</label>
                                             <select class="form-select" name="folder_id" id="folder_id_{{ $npc->id }}">
                                                 <option value="">Root (No Folder)</option>
-                                                @php
-                                                    $folders = \App\Models\Folder::orderBy('name')->get();
-                                                @endphp
-                                                @foreach($folders as $folder)
-                                                    <option value="{{ $folder->id }}" {{ $npc->folder_id === $folder->id ? 'selected' : '' }}>
-                                                        {{ $folder->name }}
+                                                @foreach($folders as $id => $label)
+                                                    <option value="{{ $id }}" {{ $npc->folder_id === $id ? 'selected' : '' }}>
+                                                        {{ $label }}
                                                     </option>
                                                 @endforeach
                                             </select>

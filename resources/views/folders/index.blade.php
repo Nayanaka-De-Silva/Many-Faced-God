@@ -32,9 +32,9 @@
     @endif
 
     @if($folders->count() > 0)
-        <div class="row">
+        <div class="d-flex flex-column gap-1">
             @foreach($folders as $folder)
-                @include('folders._folder_card', ['folder' => $folder, 'level' => 0])
+                @include('folders._folder_tree_node', ['folder' => $folder, 'level' => 0])
             @endforeach
         </div>
     @else

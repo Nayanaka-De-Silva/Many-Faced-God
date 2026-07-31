@@ -16,9 +16,9 @@
     </p>
 
     @if($templates->count() > 0)
-        <div class="row">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
             @foreach($templates as $template)
-                <div class="col-md-4 col-lg-3 mb-4">
+                <div class="col">
                     <div class="card h-100">
                         <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                             <span><i class="bi bi-file-earmark-text"></i> {{ $template->name }}</span>

@@ -53,9 +53,9 @@
                 <label for="folder_id" class="form-label">Folder</label>
                 <select name="folder_id" id="folder_id" class="form-select">
                     <option value="">-- No Folder --</option>
-                    @foreach($folders as $folder)
-                        <option value="{{ $folder->id }}" {{ $formValue('folder_id', $npc?->folder_id) == $folder->id ? 'selected' : '' }}>
-                            {{ $folder->name }}
+                    @foreach($folders as $id => $label)
+                        <option value="{{ $id }}" {{ $formValue('folder_id', $npc?->folder_id) == $id ? 'selected' : '' }}>
+                            {{ $label }}
                         </option>
                     @endforeach
                 </select>

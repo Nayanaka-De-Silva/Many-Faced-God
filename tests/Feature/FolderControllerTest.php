@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Folder;
 use App\Models\Npc;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class FolderControllerTest extends TestCase
@@ -204,5 +205,55 @@ class FolderControllerTest extends TestCase
 
         $npc->refresh();
         $this->assertEquals($parent->id, $npc->folder_id);
+    }
+
+    public function test_index_does_not_flatten_nested_folders_as_root_cards(): void
+    {
+        $root = Folder::factory()->create(['name' => 'Root Folder']);
+        $child = Folder::factory()->create(['name' => 'Child Folder', 'parent_id' => $root->id]);
+
+        $response = $this->get(route('folders.index'));
+
+        $response->assertStatus(200);
+        $this->assertEquals(1, substr_count($response->getContent(), 'data-folder-root-node'));
+        $response->assertSee('Child Folder');
+    }
+
+    public function test_index_eager_loads_full_tree_without_n_plus_one(): void
+    {
+        // Depth-2 chain
+        $root1 = Folder::factory()->create(['name' => 'Root 1']);
+        Folder::factory()->create(['name' => 'Child 1', 'parent_id' => $root1->id]);
+
+        DB::enableQueryLog();
+        $this->get(route('folders.index'));
+        $countWith2 = count(DB::getQueryLog());
+
+        // Add depth-4 chain; flush right before the second hit to exclude factory INSERTs
+        $root2 = Folder::factory()->create(['name' => 'Root 2']);
+        $child2a = Folder::factory()->create(['name' => 'Child 2a', 'parent_id' => $root2->id]);
+        $child2b = Folder::factory()->create(['name' => 'Child 2b', 'parent_id' => $child2a->id]);
+        Folder::factory()->create(['name' => 'Child 2c', 'parent_id' => $child2b->id]);
+
+        DB::flushQueryLog();
+        $this->get(route('folders.index'));
+        $countWith4 = count(DB::getQueryLog());
+
+        $this->assertEquals($countWith2, $countWith4);
+    }
+
+    public function test_edit_parent_picker_excludes_descendants(): void
+    {
+        $folder = Folder::factory()->create(['name' => 'Edit Me']);
+        $child = Folder::factory()->create(['name' => 'My Child', 'parent_id' => $folder->id]);
+        Folder::factory()->create(['name' => 'My Grandchild', 'parent_id' => $child->id]);
+        Folder::factory()->create(['name' => 'Other Folder']);
+
+        $response = $this->get(route('folders.edit', $folder));
+
+        $response->assertStatus(200);
+        $response->assertDontSee('My Child');
+        $response->assertDontSee('My Grandchild');
+        $response->assertSee('Other Folder');
     }
 }

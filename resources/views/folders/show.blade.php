@@ -44,11 +44,11 @@
     <!-- Subfolders -->
     @if($folder->children->count() > 0)
         <h5 class="mb-3"><i class="bi bi-folder"></i> Subfolders</h5>
-        <div class="row mb-4">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3 mb-4">
             @foreach($folder->children as $child)
                 @php($childNpcCount = $child->actualNpcCount())
                 @php($childTemplateCount = $child->templateCount())
-                <div class="col-md-3 mb-3">
+                <div class="col">
                     <a href="{{ route('folders.show', $child) }}" class="text-decoration-none">
                         <div class="card">
                             <div class="card-body">
@@ -69,9 +69,9 @@
     <!-- NPCs in this folder -->
     <h5 class="mb-3"><i class="bi bi-people"></i> NPCs in this Folder</h5>
     @if($folder->actualNpcs->count() > 0)
-        <div class="row mb-4">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3 mb-4">
             @foreach($folder->actualNpcs as $npc)
-                <div class="col-md-4 col-lg-3 mb-3">
+                <div class="col">
                     <a href="{{ route('npcs.show', $npc) }}" class="text-decoration-none">
                         <div class="npc-card card h-100">
                             <div class="card-header">
@@ -105,9 +105,9 @@
     <!-- Templates in this folder -->
     <h5 class="mb-3"><i class="bi bi-file-earmark-text"></i> Templates in this Folder</h5>
     @if($folder->templates->count() > 0)
-        <div class="row">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
             @foreach($folder->templates as $template)
-                <div class="col-md-4 col-lg-3 mb-3">
+                <div class="col">
                     <a href="{{ route('templates.show', $template) }}" class="text-decoration-none">
                         <div class="card h-100 border-secondary">
                             <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
