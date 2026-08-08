@@ -285,7 +285,7 @@ class NpcGenerator
         $senses = [];
         
         if (rand(0, 1)) {
-            $senses[] = ['type' => 'Darkvision', 'range' => rand(1, 3) * 30];
+            $senses[] = ['type' => 'Darkvision', 'range' => rand(1, 3) * 30, 'category' => 'ft'];
         }
         
         return $senses;

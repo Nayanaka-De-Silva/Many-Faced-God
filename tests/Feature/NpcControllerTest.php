@@ -615,6 +615,108 @@ class NpcControllerTest extends TestCase
         $response->assertDontSee('Third note sentence.');
     }
 
+    public function test_store_persists_senses_with_category(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'Sensed Creature',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'senses' => [
+                ['type' => 'Darkvision', 'range' => '60', 'category' => 'ft'],
+                ['type' => 'Passive Perception', 'range' => '14', 'category' => 'dc'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $npc = Npc::where('name', 'Sensed Creature')->firstOrFail();
+        $this->assertEquals('Darkvision', $npc->senses[0]['type']);
+        $this->assertEquals('ft', $npc->senses[0]['category']);
+        $this->assertEquals('Passive Perception', $npc->senses[1]['type']);
+        $this->assertEquals('dc', $npc->senses[1]['category']);
+    }
+
+    public function test_update_persists_changed_senses_categories(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [['type' => 'Darkvision', 'range' => 60, 'category' => 'ft']],
+        ]);
+
+        $response = $this->put(route('npcs.update', $npc), [
+            'name' => $npc->name,
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'senses' => [
+                ['type' => 'Blindsight', 'range' => '10', 'category' => 'dc'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $npc->refresh();
+        $this->assertEquals('Blindsight', $npc->senses[0]['type']);
+        $this->assertEquals('dc', $npc->senses[0]['category']);
+    }
+
+    public function test_store_validates_invalid_sense_category(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'Invalid Sense Category',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'senses' => [
+                ['type' => 'Darkvision', 'range' => '60', 'category' => 'invalid'],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_store_validates_sense_type_is_required_when_senses_present(): void
+    {
+        $response = $this->post(route('npcs.store'), [
+            'name' => 'Missing Sense Type',
+            'strength' => 10,
+            'dexterity' => 10,
+            'constitution' => 10,
+            'intelligence' => 10,
+            'wisdom' => 10,
+            'charisma' => 10,
+            'senses' => [
+                ['range' => '60', 'category' => 'ft'], // no type
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_show_displays_formatted_senses_by_category(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [
+                ['type' => 'Darkvision', 'range' => 60, 'category' => 'ft'],
+                ['type' => 'Passive Perception', 'range' => 14, 'category' => 'dc'],
+            ],
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSee('Darkvision 60 ft.');
+        $response->assertSee('Passive Perception 14');
+        $response->assertDontSee('Passive Perception 14 ft.');
+    }
+
     private function assertTemplateCheckboxState(TestResponse $response, bool $checked, int $expectedStatus = 200): void
     {
         $response->assertStatus($expectedStatus);

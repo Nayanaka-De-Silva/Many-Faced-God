@@ -199,4 +199,72 @@ class NpcModelTest extends TestCase
         $this->assertCount(1, Npc::byChallengeRating('1/4')->get());
         $this->assertCount(2, Npc::byChallengeRating('1')->get());
     }
+
+    public function test_formatted_senses_formats_ft_category_as_range_ft(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [['type' => 'Darkvision', 'range' => 60, 'category' => 'ft']],
+        ]);
+
+        $this->assertEquals(['Darkvision 60 ft.'], $npc->formatted_senses);
+    }
+
+    public function test_formatted_senses_formats_dc_category_without_suffix(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [['type' => 'Passive Perception', 'range' => 14, 'category' => 'dc']],
+        ]);
+
+        $this->assertEquals(['Passive Perception 14'], $npc->formatted_senses);
+    }
+
+    public function test_formatted_senses_formats_other_category_as_passthrough(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [['type' => 'Tremorsense', 'range' => '30 ft. (blind beyond this radius)', 'category' => 'other']],
+        ]);
+
+        $this->assertEquals(['Tremorsense 30 ft. (blind beyond this radius)'], $npc->formatted_senses);
+    }
+
+    public function test_formatted_senses_treats_missing_category_as_ft(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [['type' => 'Darkvision', 'range' => 60]], // no category key — legacy row
+        ]);
+
+        $this->assertEquals(['Darkvision 60 ft.'], $npc->formatted_senses);
+    }
+
+    public function test_formatted_senses_returns_multiple_senses_in_order(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [
+                ['type' => 'Darkvision', 'range' => 60, 'category' => 'ft'],
+                ['type' => 'Passive Perception', 'range' => 14, 'category' => 'dc'],
+                ['type' => 'Tremorsense', 'range' => '10 ft.', 'category' => 'other'],
+            ],
+        ]);
+
+        $this->assertEquals([
+            'Darkvision 60 ft.',
+            'Passive Perception 14',
+            'Tremorsense 10 ft.',
+        ], $npc->formatted_senses);
+    }
+
+    public function test_formatted_senses_trims_blank_range_without_double_space(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [
+                ['type' => 'Truesight', 'range' => '', 'category' => 'ft'],
+                ['type' => 'Keen Smell', 'range' => '', 'category' => 'dc'],
+            ],
+        ]);
+
+        $this->assertEquals([
+            'Truesight ft.',
+            'Keen Smell',
+        ], $npc->formatted_senses);
+    }
 }
