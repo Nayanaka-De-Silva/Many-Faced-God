@@ -18,6 +18,42 @@
             --dnd-gold: #C9A227;
             --dnd-parchment: #F5E6D3;
             --dnd-dark: #1a1a1a;
+
+            /* Sidebar geometry. Expanded is the default; the collapsed rail
+               values below override this switch, never these properties directly. */
+            --sidebar-width: 250px;
+            --sidebar-link-justify: flex-start;
+            --sidebar-link-padding-x: 1rem;
+            --sidebar-icon-gap: 0.5rem;
+            --sb-when-expanded: block;
+            --sb-when-collapsed: none;
+        }
+
+        /*
+         * Collapsed rail values. These appear TWICE and must be kept in sync:
+         *   1. as the automatic default in the md band (768-991.98px)
+         *   2. as the explicit user override (html.sb-collapsed), at any width >= 768px
+         * Both selectors are specificity (0,1,1) and beat :root's (0,1,0);
+         * media queries add no specificity, so an explicit override always wins.
+         */
+        @media (min-width: 768px) and (max-width: 991.98px) {
+            html:not(.sb-expanded) {
+                --sidebar-width: 72px;
+                --sidebar-link-justify: center;
+                --sidebar-link-padding-x: 0;
+                --sidebar-icon-gap: 0;
+                --sb-when-expanded: none;
+                --sb-when-collapsed: block;
+            }
+        }
+
+        html.sb-collapsed {
+            --sidebar-width: 72px;
+            --sidebar-link-justify: center;
+            --sidebar-link-padding-x: 0;
+            --sidebar-icon-gap: 0;
+            --sb-when-expanded: none;
+            --sb-when-collapsed: block;
         }
 
         [data-bs-theme="dark"] {
@@ -62,12 +98,47 @@
             top: 0;
             left: 0;
             bottom: 0;
-            width: 250px;
+            width: var(--sidebar-width);
             background: linear-gradient(135deg, var(--dnd-dark) 0%, #2d2d2d 100%);
             padding: 1rem;
             z-index: 1000;
             overflow-y: auto;
+            overflow-x: hidden;
+            transition: width 0.2s;
         }
+
+        /* Collapse toggle. Hidden until JS confirms it can actually do something. */
+        .sidebar-toggle {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 0.375rem 0;
+            margin-bottom: 0.25rem;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 0.375rem;
+            color: var(--dnd-gold);
+            line-height: 1;
+            transition: all 0.2s;
+        }
+
+        html.has-js .sidebar-toggle {
+            display: flex;
+        }
+
+        .sidebar-toggle:hover {
+            background-color: var(--dnd-red);
+            color: #fff;
+        }
+
+        .sidebar-toggle:focus-visible {
+            outline: 2px solid var(--dnd-gold);
+            outline-offset: 2px;
+        }
+
+        .sidebar-toggle .sb-icon-expanded { display: var(--sb-when-expanded); }
+        .sidebar-toggle .sb-icon-collapsed { display: var(--sb-when-collapsed); }
 
         .sidebar .brand {
             color: var(--dnd-gold);
@@ -79,11 +150,20 @@
             margin-bottom: 1rem;
         }
 
+        .sidebar .brand .brand-text {
+            display: var(--sb-when-expanded);
+        }
+
         .sidebar .nav-link {
             color: #fff;
-            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: var(--sidebar-link-justify);
+            padding: 0.75rem var(--sidebar-link-padding-x);
             border-radius: 0.375rem;
             margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
             transition: all 0.2s;
         }
 
@@ -93,15 +173,30 @@
             color: #fff;
         }
 
+        .sidebar .nav-link:focus-visible {
+            outline: 2px solid var(--dnd-gold);
+            outline-offset: -2px;
+        }
+
         .sidebar .nav-link i {
-            margin-right: 0.5rem;
+            flex: 0 0 auto;
+            margin-right: var(--sidebar-icon-gap);
+        }
+
+        .sidebar .nav-link .nav-label {
+            display: var(--sb-when-expanded);
+        }
+
+        .sidebar .sidebar-footer {
+            display: var(--sb-when-expanded);
         }
 
         /* Main content */
         .main-content {
-            margin-left: 250px;
+            margin-left: var(--sidebar-width);
             padding: 2rem;
             min-height: 100vh;
+            transition: margin-left 0.2s;
         }
 
         /* NPC Card Styles */
@@ -404,57 +499,85 @@
         .folder-tree-children { padding-left: 1rem; border-left: 1px solid var(--bs-border-color); }
         @media (min-width: 768px) { .folder-tree-children { padding-left: 1.5rem; } }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: auto;
-                position: relative;
-            }
-
+        /* Responsive: below md the sidebar is hidden and the mobile navbar takes over. */
+        @media (max-width: 767.98px) {
             .main-content {
                 margin-left: 0;
             }
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sidebar,
+            .main-content,
+            .sidebar .nav-link,
+            .sidebar-toggle {
+                transition: none;
+            }
+        }
     </style>
+
+    <script>
+        (function () {
+            var root = document.documentElement;
+            root.classList.add('has-js');
+            try {
+                var state = localStorage.getItem('mfg.sidebar');
+                if (state === 'collapsed' || state === 'expanded') {
+                    root.classList.add('sb-' + state);
+                }
+            } catch (e) { /* storage blocked; fall back to the breakpoint default */ }
+        })();
+    </script>
 
     @stack('styles')
 </head>
 <body>
     <!-- Sidebar -->
-    <nav class="sidebar d-none d-md-block">
+    <nav class="sidebar d-none d-md-block" id="sidebarNav">
+        <button type="button"
+                id="sidebarToggle"
+                class="sidebar-toggle"
+                aria-controls="sidebarNav"
+                aria-expanded="true"
+                aria-label="Toggle sidebar"
+                title="Toggle sidebar">
+            <i class="bi bi-chevron-double-left sb-icon-expanded" aria-hidden="true"></i>
+            <i class="bi bi-chevron-double-right sb-icon-collapsed" aria-hidden="true"></i>
+        </button>
+
         <div class="brand">
-            <i class="bi bi-masks"></i>
-            <div>Many Faced God</div>
+            <i class="bi bi-masks" aria-hidden="true"></i>
+            <div class="brand-text">Many Faced God</div>
         </div>
 
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                    <i class="bi bi-house-door"></i> Dashboard
+                <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}" title="Dashboard" aria-label="Dashboard">
+                    <i class="bi bi-house-door" aria-hidden="true"></i><span class="nav-label">Dashboard</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('npcs.*') ? 'active' : '' }}" href="{{ route('npcs.index') }}">
-                    <i class="bi bi-people"></i> NPCs
+                <a class="nav-link {{ request()->routeIs('npcs.*') ? 'active' : '' }}" href="{{ route('npcs.index') }}" title="NPCs" aria-label="NPCs">
+                    <i class="bi bi-people" aria-hidden="true"></i><span class="nav-label">NPCs</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('templates.*') ? 'active' : '' }}" href="{{ route('templates.index') }}">
-                    <i class="bi bi-file-earmark-text"></i> Templates
+                <a class="nav-link {{ request()->routeIs('templates.*') ? 'active' : '' }}" href="{{ route('templates.index') }}" title="Templates" aria-label="Templates">
+                    <i class="bi bi-file-earmark-text" aria-hidden="true"></i><span class="nav-label">Templates</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('folders.*') ? 'active' : '' }}" href="{{ route('folders.index') }}">
-                    <i class="bi bi-folder"></i> Folders
+                <a class="nav-link {{ request()->routeIs('folders.*') ? 'active' : '' }}" href="{{ route('folders.index') }}" title="Folders" aria-label="Folders">
+                    <i class="bi bi-folder" aria-hidden="true"></i><span class="nav-label">Folders</span>
                 </a>
             </li>
         </ul>
 
-        <hr class="dnd-divider">
-
-        <div class="text-muted small text-center">
-            D&D 5e (2014)
+        <div class="sidebar-footer">
+            <hr class="dnd-divider">
+            <div class="text-muted small text-center">
+                D&D 5e (2014)
+            </div>
         </div>
     </nav>
 
@@ -512,6 +635,48 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Sidebar collapse toggle -->
+    <script>
+        (function () {
+            var root = document.documentElement;
+            var btn = document.getElementById('sidebarToggle');
+            if (!btn) return;
+
+            var KEY = 'mfg.sidebar';
+            var wide = window.matchMedia('(min-width: 992px)');
+
+            function isCollapsed() {
+                if (root.classList.contains('sb-collapsed')) return true;
+                if (root.classList.contains('sb-expanded')) return false;
+                return !wide.matches;
+            }
+
+            function syncButton() {
+                var collapsed = isCollapsed();
+                var label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+                btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+                btn.setAttribute('aria-label', label);
+                btn.setAttribute('title', label);
+            }
+
+            btn.addEventListener('click', function () {
+                var collapsed = !isCollapsed();
+                root.classList.toggle('sb-collapsed', collapsed);
+                root.classList.toggle('sb-expanded', !collapsed);
+                try {
+                    localStorage.setItem(KEY, collapsed ? 'collapsed' : 'expanded');
+                } catch (e) { /* storage blocked; state just won't persist across reloads */ }
+                syncButton();
+            });
+
+            if (wide.addEventListener) {
+                wide.addEventListener('change', syncButton);
+            }
+
+            syncButton();
+        })();
+    </script>
 
     @stack('scripts')
 </body>
