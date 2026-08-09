@@ -427,6 +427,37 @@ class NpcControllerTest extends TestCase
         $response->assertSee('Edit NPC');
     }
 
+    public function test_edit_template_marks_form_as_template_mode(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Mode Template']);
+
+        $response = $this->get(route('npcs.edit', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee('class="template-mode"', false);
+        $response->assertSee('Template');
+    }
+
+    public function test_edit_template_cancel_returns_to_template_view(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Cancel Template']);
+
+        $response = $this->get(route('npcs.edit', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee(route('templates.show', $template), false);
+    }
+
+    public function test_edit_regular_npc_does_not_use_template_mode(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Plain NPC']);
+
+        $response = $this->get(route('npcs.edit', $npc));
+
+        $response->assertStatus(200);
+        $response->assertDontSee('class="template-mode"', false);
+    }
+
     public function test_update_modifies_npc(): void
     {
         $npc = Npc::factory()->create(['name' => 'Old Name']);

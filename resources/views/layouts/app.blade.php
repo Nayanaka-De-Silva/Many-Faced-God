@@ -257,6 +257,28 @@
             color: #888;
         }
 
+        /* Template Card Styles */
+        /* Overrides the red border/header for NPC cards that represent templates */
+        .npc-card.template-card {
+            border-color: rgba(var(--bs-secondary-rgb), 1);
+        }
+
+        .npc-card.template-card:hover {
+            box-shadow: 0 8px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .npc-card.template-card .card-header {
+            background: rgba(var(--bs-secondary-rgb), 1);
+            color: #fff;
+            border-bottom-color: #adb5bd;
+        }
+
+        /* Gray card header for edit-form section cards when editing a template */
+        .template-mode .card-header {
+            background-color: rgba(var(--bs-secondary-rgb), 1);
+            color: #fff;
+        }
+
         .npc-notes-preview {
             display: -webkit-box;
             -webkit-box-orient: vertical;

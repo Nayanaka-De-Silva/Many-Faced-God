@@ -122,6 +122,26 @@ class TemplateControllerTest extends TestCase
         $response->assertSee('Choose Hit Points');
     }
 
+    public function test_show_renders_template_card_in_gray(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Gray Template']);
+
+        $response = $this->get(route('templates.show', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee('class="card npc-card template-card"', false);
+    }
+
+    public function test_show_template_badge_is_legible_on_gray_header(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Badge Template']);
+
+        $response = $this->get(route('templates.show', $template));
+
+        $response->assertStatus(200);
+        $response->assertSee('badge bg-dark">Template', false);
+    }
+
     public function test_show_returns_404_for_non_template(): void
     {
         $npc = Npc::factory()->create();
