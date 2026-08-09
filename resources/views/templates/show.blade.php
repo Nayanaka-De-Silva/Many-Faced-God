@@ -33,10 +33,10 @@
     <!-- Template Stat Block (Same as NPC show) -->
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            <div class="card npc-card">
+            <div class="card npc-card template-card">
                 <div class="card-header text-center">
                     <h2 class="mb-0">{{ $template->name }}</h2>
-                    <span class="badge bg-secondary">Template</span>
+                    <span class="badge bg-dark">Template</span>
                 </div>
                 <div class="card-body">
                     <p class="text-center fst-italic mb-3">
