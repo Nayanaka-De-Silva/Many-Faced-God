@@ -250,6 +250,63 @@ class NpcCastingProfileDisplayTest extends TestCase
         $response->assertDontSee('data-spell-id=""', false);
     }
 
+    // ── Spell detail modal placement (issue #56) ─────────────────────────────
+
+    /**
+     * The spell modal must render outside the statblock card. Nested inside .npc-card its
+     * position:fixed is re-anchored by the card's :hover transform, which makes the modal
+     * flicker and vanish. The page content — and with it every .npc-card — lives inside the
+     * layout's <main>, so the modal appearing after </main> is the invariant that matters.
+     */
+    public function test_spell_detail_modal_renders_outside_the_statblock_card(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Placement Check']);
+
+        NpcCastingProfile::factory()->spellcasting()->create([
+            'npc_id'   => $npc->id,
+            'cantrips' => [
+                ['library_id' => 'lib-spell-fire-bolt', 'name' => 'Fire Bolt'],
+            ],
+        ]);
+
+        $this->assertSpellModalRendersAtBodyLevel(route('npcs.show', $npc));
+    }
+
+    /** The template show page wraps the same partial in .npc-card.template-card, which shares
+     *  the hover transform — so it needs the placement pinned independently. */
+    public function test_spell_detail_modal_renders_outside_the_statblock_card_on_templates_show(): void
+    {
+        $template = Npc::factory()->template()->create(['name' => 'Placement Check Template']);
+
+        NpcCastingProfile::factory()->spellcasting()->create([
+            'npc_id'   => $template->id,
+            'cantrips' => [
+                ['library_id' => 'lib-spell-fire-bolt', 'name' => 'Fire Bolt'],
+            ],
+        ]);
+
+        $this->assertSpellModalRendersAtBodyLevel(route('templates.show', $template));
+    }
+
+    private function assertSpellModalRendersAtBodyLevel(string $url): void
+    {
+        $html = $this->get($url)->assertStatus(200)->getContent();
+
+        $modalPosition      = strpos($html, 'id="spellDetailModal"');
+        $contentEndPosition = strrpos($html, '</main>');
+
+        $this->assertNotFalse($modalPosition, 'The spell detail modal should be rendered.');
+        $this->assertNotFalse($contentEndPosition, 'The layout should wrap page content in <main>.');
+        $this->assertGreaterThan(
+            $contentEndPosition,
+            $modalPosition,
+            'The spell detail modal must render at body level, not inside the .npc-card statblock.'
+        );
+
+        // The modal is shared by every spell link, so exactly one copy should exist.
+        $this->assertSame(1, substr_count($html, 'id="spellDetailModal"'));
+    }
+
     // ── Template show page ───────────────────────────────────────────────────
 
     public function test_template_with_casting_profile_renders_on_templates_show(): void

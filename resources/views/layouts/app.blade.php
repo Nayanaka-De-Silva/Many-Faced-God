@@ -708,6 +708,10 @@
         })();
     </script>
 
+    {{-- Body-level home for fixed-position UI (modals, backdrops). Keeping modals out of
+         page containers avoids transformed ancestors re-anchoring their fixed positioning. --}}
+    @stack('modals')
+
     @stack('scripts')
 </body>
 </html>
