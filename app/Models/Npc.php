@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\NpcCastingProfile;
 use Illuminate\Support\Str;
 
 class Npc extends Model
@@ -191,6 +192,14 @@ class Npc extends Model
     }
 
     /**
+     * Get the NPC's casting profiles (Phase 2+ spellcasting system), ordered by sort_order.
+     */
+    public function castingProfiles(): HasMany
+    {
+        return $this->hasMany(NpcCastingProfile::class)->orderBy('sort_order');
+    }
+
+    /**
      * Calculate ability modifier.
      */
     public static function calculateModifier(int $score): int
@@ -368,6 +377,41 @@ class Npc extends Model
             $clone->spellcasting()->create(
                 $this->spellcasting->only(['ability', 'spell_save_dc', 'spell_attack_bonus', 'caster_level', 'spellcasting_notes', 'spells'])
             );
+        }
+
+        // Clone casting profiles and their nested innate entries. Eager-load both levels up
+        // front so this doesn't issue one extra query per profile for its innate entries.
+        foreach ($this->castingProfiles()->with('innateEntries')->get() as $profile) {
+            $cloneProfile = $clone->castingProfiles()->create($profile->only([
+                'casting_type',
+                'spellcasting_ability',
+                'save_dc',
+                'attack_bonus',
+                'psionics',
+                'source',
+                'homebrew',
+                'caster_level',
+                'source_class',
+                'slots',
+                'slot_level',
+                'slot_count',
+                'race_or_origin',
+                'cantrips',
+                'spells_known_or_prepared',
+                'sort_order',
+            ]));
+
+            foreach ($profile->innateEntries as $entry) {
+                $cloneProfile->innateEntries()->create($entry->only([
+                    'spell_library_id',
+                    'spell_name',
+                    'usage',
+                    'uses_per_day',
+                    'restriction',
+                    'cast_level',
+                    'sort_order',
+                ]));
+            }
         }
 
         return $clone;

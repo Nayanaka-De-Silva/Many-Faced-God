@@ -6,6 +6,8 @@ use App\Models\Npc;
 use App\Models\Folder;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
+use App\Models\NpcCastingProfile;
+use App\Models\NpcInnateSpellEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -188,6 +190,76 @@ class NpcModelTest extends TestCase
 
         $this->assertCount(2, Npc::search('Goblin')->get());
         $this->assertCount(1, Npc::search('Warrior')->get());
+    }
+
+    public function test_npc_duplicate_copies_casting_profiles_and_innate_entries(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Original']);
+
+        $innateProfile = NpcCastingProfile::factory()->innate()->create([
+            'npc_id' => $npc->id,
+            'race_or_origin' => 'Drow Magic',
+        ]);
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $innateProfile->id,
+            'spell_name' => 'Dancing Lights',
+        ]);
+        NpcInnateSpellEntry::factory()->perDay(1)->create([
+            'casting_profile_id' => $innateProfile->id,
+            'spell_name' => 'Darkness',
+        ]);
+
+        NpcCastingProfile::factory()->spellcasting()->create(['npc_id' => $npc->id]);
+
+        $clone = $npc->duplicate();
+
+        // Clone has its own separate profiles
+        $cloneProfiles = NpcCastingProfile::where('npc_id', $clone->id)->get();
+        $this->assertCount(2, $cloneProfiles);
+
+        $originalProfileIds = NpcCastingProfile::where('npc_id', $npc->id)->pluck('id');
+        foreach ($cloneProfiles as $cloneProfile) {
+            $this->assertNotContains($cloneProfile->id, $originalProfileIds->toArray());
+        }
+
+        // Innate profile fields were copied correctly
+        $cloneInnate = $cloneProfiles->firstWhere('casting_type', 'Innate');
+        $this->assertNotNull($cloneInnate);
+        $this->assertSame('Drow Magic', $cloneInnate->race_or_origin);
+
+        // Innate entries were cloned with correct field values
+        $cloneEntries = NpcInnateSpellEntry::where('casting_profile_id', $cloneInnate->id)->get();
+        $this->assertCount(2, $cloneEntries);
+        $this->assertNotNull($cloneEntries->firstWhere('spell_name', 'Dancing Lights'));
+        $this->assertNotNull($cloneEntries->firstWhere('spell_name', 'Darkness'));
+
+        // Entries belong to clone's profile, not original's
+        $originalEntryIds = NpcInnateSpellEntry::where('casting_profile_id', $innateProfile->id)->pluck('id');
+        foreach ($cloneEntries as $cloneEntry) {
+            $this->assertNotContains($cloneEntry->id, $originalEntryIds->toArray());
+        }
+    }
+
+    public function test_npc_duplicate_eager_loads_casting_profiles_to_avoid_n_plus_one(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Many Profiles']);
+
+        foreach (range(1, 4) as $i) {
+            $profile = NpcCastingProfile::factory()->innate()->create(['npc_id' => $npc->id]);
+            NpcInnateSpellEntry::factory()->atWill()->create(['casting_profile_id' => $profile->id]);
+        }
+
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        $npc->fresh()->duplicate();
+        $selects = collect(\Illuminate\Support\Facades\DB::getQueryLog())
+            ->filter(fn ($q) => str_starts_with(strtolower($q['query']), 'select')
+                && (str_contains($q['query'], 'npc_casting_profiles') || str_contains($q['query'], 'npc_innate_spell_entries')));
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+
+        // Eager-loading both levels means exactly one SELECT for profiles and one for
+        // entries (a whereIn across all profile ids), regardless of profile count — not
+        // one extra SELECT per profile for its innate entries.
+        $this->assertCount(2, $selects, 'duplicate() should issue exactly 2 SELECTs (profiles, entries) regardless of profile count.');
     }
 
     public function test_npc_by_challenge_rating_scope(): void
