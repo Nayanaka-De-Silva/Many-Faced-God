@@ -99,6 +99,9 @@
                         @endforeach
                     @endif
 
+                    <!-- Structured Casting Profiles (Phase 4) -->
+                    @include('npcs.partials._casting_profiles_display', ['npc' => $template])
+
                     @php
                         $templateActions = $template->actions->whereIn('action_type', [
                             \App\Models\NpcAction::TYPE_ACTION,

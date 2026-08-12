@@ -68,6 +68,15 @@ class Npc extends Model
     ];
 
     /**
+     * Relations needed to render the show/statblock view. Shared by NpcController::show()
+     * and TemplateController::show() (templates are npcs rows too) so the two can't drift
+     * out of sync — as happened before this constant existed, when templates silently
+     * rendered no spellcasting section because only one of the two eager-load calls knew
+     * about the relation.
+     */
+    public const STATBLOCK_EAGER_LOADS = ['folder', 'traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries'];
+
+    /**
      * D&D 5e Skills mapped to their ability scores.
      */
     public const SKILLS = [

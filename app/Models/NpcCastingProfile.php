@@ -223,8 +223,9 @@ class NpcCastingProfile extends Model
 
     /**
      * Return an ordinal suffix string for a given integer (1→1st, 2→2nd, etc.).
+     * Public so views can reuse the same formatting instead of duplicating it.
      */
-    private static function ordinalSuffix(int $n): string
+    public static function ordinalSuffix(int $n): string
     {
         return match ($n) {
             1 => '1st',

@@ -143,7 +143,7 @@ class NpcController extends Controller
      */
     public function show(Npc $npc): View
     {
-        $npc->load(['folder', 'traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries']);
+        $npc->load(Npc::STATBLOCK_EAGER_LOADS);
         $folders = Folder::treeOptions();
 
         return view('npcs.show', compact('npc', 'folders'));

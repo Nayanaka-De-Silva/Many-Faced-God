@@ -30,7 +30,7 @@ class TemplateController extends Controller
             abort(404);
         }
 
-        $template->load(['folder', 'traits', 'actions', 'spellcasting']);
+        $template->load(Npc::STATBLOCK_EAGER_LOADS);
         
         return view('templates.show', compact('template'));
     }

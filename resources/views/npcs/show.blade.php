@@ -178,9 +178,12 @@
                         @endforeach
                     @endif
 
-                    <!-- Spellcasting -->
+                    <!-- Structured Casting Profiles (Phase 4) -->
+                    @include('npcs.partials._casting_profiles_display', ['npc' => $npc])
+
+                    <!-- Spellcasting (Description) — legacy free-text block -->
                     @if($npc->spellcasting)
-                        <h5 class="text-danger mt-4">Spellcasting</h5>
+                        <h5 class="text-danger mt-4">Spellcasting (Description)</h5>
                         <p>
                             <strong><em>Spellcasting.</em></strong>
                             The {{ strtolower($npc->name) }} is a {{ $npc->spellcasting->caster_level ?? '1st' }}-level spellcaster.
