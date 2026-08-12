@@ -369,5 +369,46 @@ For issues or questions about deployment, refer to:
 
 ---
 
-**Last Updated**: 2024
+## Library of Netheril Integration
+
+Many Faced God proxies spell data from [library-of-netheril](https://gitea.local/your-org/library-of-netheril)
+via a shared Docker network. The app container resolves the service by its Docker Compose service name
+(`library-of-netheril`) on internal port **3000**.
+
+### Network setup (one-time, before starting either stack)
+
+```bash
+docker network create netheril-integration
+```
+
+Both this stack and library-of-netheril's own compose must join this network for the internal hostname
+to resolve. The network is declared `external: true` in both `docker-compose.yml` and
+`docker-compose.prod.yml` so it must exist before `docker compose up`.
+
+### Configuring the server address
+
+The default base URL (`http://library-of-netheril:3000`) works when both stacks share the
+`netheril-integration` network. Override it in two ways, in order of precedence:
+
+1. **In-app Settings page** (`/settings`) — persists to the `app_settings` table and takes effect
+   immediately without a restart. Useful for pointing at an alternative or staging instance.
+2. **Environment variable** — set `NETHERIL_BASE_URL` in `.env` or the container environment.
+   This is the config-level default used when no DB override exists.
+
+```env
+# .env (or container environment)
+NETHERIL_BASE_URL=http://library-of-netheril:3000
+NETHERIL_TIMEOUT=5
+```
+
+### Environment variables reference
+
+| Variable | Default | Description |
+|---|---|---|
+| `NETHERIL_BASE_URL` | `http://library-of-netheril:3000` | Base URL of the spell library service |
+| `NETHERIL_TIMEOUT` | `5` | HTTP timeout in seconds for library requests |
+
+---
+
+**Last Updated**: 2026
 **Version**: 1.0

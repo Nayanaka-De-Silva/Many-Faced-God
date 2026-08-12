@@ -593,6 +593,11 @@
                     <i class="bi bi-folder" aria-hidden="true"></i><span class="nav-label">Folders</span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.edit') }}" title="Settings" aria-label="Settings">
+                    <i class="bi bi-gear" aria-hidden="true"></i><span class="nav-label">Settings</span>
+                </a>
+            </li>
         </ul>
 
         <div class="sidebar-footer">
@@ -625,6 +630,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ route('folders.index') }}">Folders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ route('settings.edit') }}">Settings</a>
                     </li>
                 </ul>
             </div>

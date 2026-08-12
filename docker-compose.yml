@@ -11,6 +11,7 @@ services:
       - ./storage:/var/www/html/storage
     networks:
       - mfg-network
+      - netheril-integration
     depends_on:
       - db
 
@@ -47,6 +48,8 @@ services:
 networks:
   mfg-network:
     driver: bridge
+  netheril-integration:
+    external: true
 
 volumes:
   mfg-db-data:

@@ -8,6 +8,7 @@ services:
       - .env
     networks:
       - many-faced-god-network
+      - netheril-integration
     depends_on:
       - db
 
@@ -47,6 +48,8 @@ services:
 
 networks:
   many-faced-god-network:
+    external: true
+  netheril-integration:
     external: true
 
 volumes:

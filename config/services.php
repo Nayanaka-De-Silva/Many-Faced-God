@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'netheril' => [
+        // env()'s default only applies when the key is absent, not when it's present-but-empty
+        // (e.g. a fresh `cp .env.example .env` with a blank value) — guard with `?:` as well.
+        'base_url' => env('NETHERIL_BASE_URL') ?: 'http://library-of-netheril:3000',
+        'timeout'  => env('NETHERIL_TIMEOUT') ?: 5,
+    ],
+
 ];

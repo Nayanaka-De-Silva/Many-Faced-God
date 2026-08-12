@@ -27,6 +27,7 @@ class LayoutTest extends TestCase
         $response->assertSee('<span class="nav-label">NPCs</span>', false);
         $response->assertSee('<span class="nav-label">Templates</span>', false);
         $response->assertSee('<span class="nav-label">Folders</span>', false);
+        $response->assertSee('<span class="nav-label">Settings</span>', false);
     }
 
     public function test_sidebar_nav_links_expose_accessible_labels(): void
@@ -39,6 +40,16 @@ class LayoutTest extends TestCase
         $response->assertSee('title="NPCs" aria-label="NPCs"', false);
         $response->assertSee('title="Templates" aria-label="Templates"', false);
         $response->assertSee('title="Folders" aria-label="Folders"', false);
+        $response->assertSee('title="Settings" aria-label="Settings"', false);
+    }
+
+    public function test_mobile_nav_contains_settings_link(): void
+    {
+        $response = $this->get(route('dashboard'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Settings', false);
+        $response->assertSee(route('settings.edit'), false);
     }
 
     public function test_sidebar_state_script_uses_expected_storage_key(): void
