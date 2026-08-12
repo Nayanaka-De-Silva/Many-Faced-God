@@ -197,11 +197,11 @@ class NpcController extends Controller
             $npc->spellcasting()->create($validated['spellcasting']);
         }
 
-        // Sync casting profiles only when the request actually included the field. No form
-        // submits this key yet (the editor lands in a later PR), so an unconditional delete
-        // here would silently wipe any profile created another way (API, seeder, future UI)
-        // every time that NPC is saved through today's edit form.
-        if ($request->has('casting_profiles')) {
+        // Sync casting profiles only when the form actually submitted the section (a hidden
+        // marker input, always present, distinguishes "submitted with zero profiles" from "this
+        // request doesn't know about the field at all" — plain $request->has('casting_profiles')
+        // can't tell those apart, since a zero-row repeater sends no casting_profiles key either).
+        if ($request->has('casting_profiles_submitted')) {
             $npc->castingProfiles()->delete(); // FK cascade removes innate entries too
             if (!empty($validated['casting_profiles'])) {
                 $this->createCastingProfiles($npc, $validated['casting_profiles']);
@@ -424,6 +424,7 @@ class NpcController extends Controller
             'casting_profiles.*.spells_known_or_prepared.*.name' => 'required|string|max:255',
             'casting_profiles.*.innate_entries' => 'nullable|array',
             'casting_profiles.*.innate_entries.*.spell_name' => 'required|string|max:255',
+            'casting_profiles.*.innate_entries.*.spell_library_id' => 'nullable|string',
             'casting_profiles.*.innate_entries.*.usage' => [
                 'required',
                 Rule::in([NpcInnateSpellEntry::USAGE_AT_WILL, NpcInnateSpellEntry::USAGE_PER_DAY]),

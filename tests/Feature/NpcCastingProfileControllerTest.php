@@ -248,6 +248,7 @@ class NpcCastingProfileControllerTest extends TestCase
         // Update with a single new profile (no entries)
         $response = $this->put(route('npcs.update', $npc), $this->baseNpcPayload([
             'name' => 'Updating Spellcaster',
+            'casting_profiles_submitted' => '1',
             'casting_profiles' => [
                 $this->pactMagicProfilePayload(),
             ],
@@ -261,6 +262,29 @@ class NpcCastingProfileControllerTest extends TestCase
 
         $remaining = NpcCastingProfile::where('npc_id', $npc->id)->firstOrFail();
         $this->assertSame('PactMagic', $remaining->casting_type);
+    }
+
+    public function test_innate_entry_spell_library_id_from_picker_is_persisted(): void
+    {
+        $response = $this->post(route('npcs.store'), $this->baseNpcPayload([
+            'casting_profiles' => [
+                $this->innateProfilePayload([
+                    'innate_entries' => [
+                        [
+                            'spell_name' => 'Fireball',
+                            'spell_library_id' => 'phb-fireball',
+                            'usage' => 'AtWill',
+                        ],
+                    ],
+                ]),
+            ],
+        ]));
+
+        $response->assertRedirect();
+
+        $entry = NpcInnateSpellEntry::firstWhere('spell_name', 'Fireball');
+        $this->assertNotNull($entry);
+        $this->assertSame('phb-fireball', $entry->spell_library_id);
     }
 
     public function test_update_without_casting_profiles_key_does_not_wipe_existing_profiles(): void

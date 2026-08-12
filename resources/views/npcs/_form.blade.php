@@ -441,10 +441,11 @@
     </div>
 </div>
 
-<!-- Spellcasting -->
+<!-- Spellcasting (Description) — legacy free-text block; use Casting Profiles below for structured statblock output -->
 <div class="card mb-4">
     <div class="card-header bg-dark text-warning">
-        <i class="bi bi-magic"></i> Spellcasting
+        <i class="bi bi-magic"></i> Spellcasting (Description)
+        <small class="text-muted ms-2 fw-normal">Legacy free-text notes — use Casting Profiles below for structured output</small>
     </div>
     <div class="card-body">
         @php $spellcasting = $formValue('spellcasting', $npc?->spellcasting?->toArray() ?? []); @endphp
@@ -491,6 +492,8 @@
         </div>
     </div>
 </div>
+
+@include('npcs.partials._casting_profiles')
 
 @push('scripts')
 <script>
