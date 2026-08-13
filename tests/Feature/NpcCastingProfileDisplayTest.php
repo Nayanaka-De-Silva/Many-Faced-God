@@ -340,6 +340,54 @@ class NpcCastingProfileDisplayTest extends TestCase
         $this->assertSame(1, substr_count($html, 'id="spellDetailModal"'));
     }
 
+    // ── Leveled spell rendering (issue #62) ─────────────────────────────────
+
+    public function test_spellcasting_profile_renders_per_level_paragraph_for_leveled_spells(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Leveled Caster']);
+
+        NpcCastingProfile::factory()->spellcasting()->create([
+            'npc_id' => $npc->id,
+            'slots'  => [1 => 4, 2 => 3],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+                ['library_id' => null, 'name' => 'Shield', 'level' => 1],
+                ['library_id' => null, 'name' => 'Misty Step', 'level' => 2],
+            ],
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSee('1st level (4 slots)');
+        $response->assertSee('Magic Missile');
+        $response->assertSee('Shield');
+        $response->assertSee('2nd level (3 slots)');
+        $response->assertSee('Misty Step');
+        // Legacy fallback line must NOT appear when all spells have a level
+        $response->assertDontSee('Spells prepared:');
+    }
+
+    public function test_spellcasting_profile_legacy_spells_without_level_render_in_fallback_line(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Legacy Caster']);
+
+        NpcCastingProfile::factory()->spellcasting()->create([
+            'npc_id' => $npc->id,
+            'slots'  => [1 => 4],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile'], // no level key
+            ],
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSee('1st level (4 slots)');
+        $response->assertSee('Spells prepared');
+        $response->assertSee('Magic Missile');
+    }
+
     // ── Template show page ───────────────────────────────────────────────────
 
     public function test_template_with_casting_profile_renders_on_templates_show(): void

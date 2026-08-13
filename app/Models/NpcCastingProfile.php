@@ -216,6 +216,77 @@ class NpcCastingProfile extends Model
     }
 
     /**
+     * Merge the slot map with leveled spells for statblock display (Spellcasting only).
+     * Returns one row per level that has slots > 0 OR at least one assigned spell.
+     * Rows with 0 slots and no spells are dropped. Sorted ascending by level.
+     *
+     * Each row: ['level' => int, 'ordinal' => string, 'slots' => int, 'spells' => array]
+     *
+     * @return array<int, array{level: int, ordinal: string, slots: int, spells: array}>
+     */
+    public function getSlotsWithSpellsAttribute(): array
+    {
+        if (! $this->isSpellcasting()) {
+            return [];
+        }
+
+        $slotMap = $this->slots ?? [];
+        $spellsByLevel = [];
+
+        foreach ($this->spells_known_or_prepared ?? [] as $spell) {
+            $level = $spell['level'] ?? null;
+            if ($level === null || $level === '') {
+                continue;
+            }
+            $spellsByLevel[(int) $level][] = $spell;
+        }
+
+        $allLevels = array_unique(array_merge(
+            array_map('intval', array_keys($slotMap)),
+            array_keys($spellsByLevel)
+        ));
+        sort($allLevels);
+
+        $rows = [];
+        foreach ($allLevels as $level) {
+            $slotCount   = (int) ($slotMap[$level] ?? 0);
+            $levelSpells = $spellsByLevel[$level] ?? [];
+
+            if ($slotCount === 0 && empty($levelSpells)) {
+                continue;
+            }
+
+            $rows[] = [
+                'level'   => $level,
+                'ordinal' => self::ordinalLevel($level),
+                'slots'   => $slotCount,
+                'spells'  => $levelSpells,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Spells in spells_known_or_prepared that carry no level (or a null/blank one).
+     * These are legacy entries saved before the level field was introduced.
+     * Preserves original order. Empty array for non-Spellcasting profiles.
+     *
+     * @return array<int, array{library_id: string|null, name: string}>
+     */
+    public function getSpellsWithoutLevelAttribute(): array
+    {
+        if (! $this->isSpellcasting()) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->spells_known_or_prepared ?? [],
+            fn (array $spell): bool => ($spell['level'] ?? null) === null || ($spell['level'] ?? '') === ''
+        ));
+    }
+
+    /**
      * Format the spell slot table for Spellcasting statblock display.
      * Example: "1st level (4 slots), 2nd level (3 slots)"
      * Returns null for non-Spellcasting profiles or when slots are empty.

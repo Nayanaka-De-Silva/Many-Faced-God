@@ -143,6 +143,26 @@ class NpcCastingProfileFormTest extends TestCase
         $response->assertSee('MagicMissileTestSpell');
     }
 
+    public function test_edit_form_renders_level_select_for_spell_rows_but_not_cantrip_rows(): void
+    {
+        $npc = Npc::factory()->create();
+
+        NpcCastingProfile::factory()->spellcasting()->create([
+            'npc_id'                   => $npc->id,
+            'cantrips'                 => [['library_id' => null, 'name' => 'LevelSelectCantripTest']],
+            'spells_known_or_prepared' => [['library_id' => null, 'name' => 'LevelSelectSpellTest', 'level' => 3]],
+        ]);
+
+        $response = $this->get(route('npcs.edit', $npc));
+
+        $response->assertStatus(200);
+        // Level select must appear for spell rows (with the saved level pre-selected)
+        $response->assertSee('spells_known_or_prepared][0][level]', false);
+        $response->assertSee('<option value="3" selected', false);
+        // Level select must NOT appear for cantrip rows
+        $response->assertDontSee('cantrips][0][level]', false);
+    }
+
     // ── 422 re-render: data preservation ────────────────────────────────────
 
     /**

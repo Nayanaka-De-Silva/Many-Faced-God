@@ -129,6 +129,32 @@ class NpcCastingProfileControllerTest extends TestCase
         $this->assertSame(5, $pact->caster_level);
     }
 
+    public function test_store_persists_spell_level_in_spells_known_or_prepared(): void
+    {
+        $response = $this->post(route('npcs.store'), $this->baseNpcPayload([
+            'casting_profiles' => [
+                $this->spellcastingProfilePayload([
+                    'spells_known_or_prepared' => [
+                        ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+                    ],
+                ]),
+            ],
+        ]));
+
+        $response->assertRedirect();
+
+        $npc     = Npc::where('name', 'Test Spellcaster')->firstOrFail();
+        $profile = NpcCastingProfile::where('npc_id', $npc->id)
+            ->where('casting_type', 'Spellcasting')
+            ->firstOrFail();
+
+        // assertEquals, not assertSame: a real browser form submits "1" as a string, which
+        // PHP's test request bag doesn't reproduce (it preserves the literal int passed above).
+        // Loosening the type check here keeps the assertion honest about what it can prove.
+        $spells = $profile->spells_known_or_prepared;
+        $this->assertEquals(1, $spells[0]['level'] ?? null);
+    }
+
     // --- Validation failure tests ---
 
     public function test_store_rejects_per_day_innate_entry_without_uses_per_day(): void

@@ -71,7 +71,7 @@ class NpcCastingProfileFactory extends Factory
             'source_class' => 'Wizard',
             'slots' => [1 => 4, 2 => 3, 3 => 3, 4 => 3, 5 => 3, 6 => 1, 7 => 1, 8 => 1, 9 => 1],
             'cantrips' => [['library_id' => null, 'name' => 'Fire Bolt']],
-            'spells_known_or_prepared' => [['library_id' => null, 'name' => 'Magic Missile']],
+            'spells_known_or_prepared' => [['library_id' => null, 'name' => 'Magic Missile', 'level' => 1]],
             // type-exclusive fields nulled
             'slot_level' => null,
             'slot_count' => null,

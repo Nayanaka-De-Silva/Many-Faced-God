@@ -422,6 +422,7 @@ class NpcController extends Controller
             'casting_profiles.*.spells_known_or_prepared' => 'nullable|array',
             'casting_profiles.*.spells_known_or_prepared.*.library_id' => 'nullable|string',
             'casting_profiles.*.spells_known_or_prepared.*.name' => 'required|string|max:255',
+            'casting_profiles.*.spells_known_or_prepared.*.level' => 'nullable|integer|min:1|max:9',
             'casting_profiles.*.innate_entries' => 'nullable|array',
             'casting_profiles.*.innate_entries.*.spell_name' => 'required|string|max:255',
             'casting_profiles.*.innate_entries.*.spell_library_id' => 'nullable|string',
