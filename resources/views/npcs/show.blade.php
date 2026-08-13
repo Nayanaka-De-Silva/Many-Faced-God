@@ -117,12 +117,7 @@
 
                     <!-- Senses -->
                     @if($npc->senses && count($npc->senses) > 0)
-                        <p>
-                            <strong>Senses</strong>
-                            {{ implode(', ', $npc->formatted_senses) }}, passive Perception {{ $npc->passive_perception }}
-                        </p>
-                    @else
-                        <p><strong>Senses</strong> passive Perception {{ $npc->passive_perception }}</p>
+                        <p><strong>Senses</strong> {{ implode(', ', $npc->formatted_senses) }}</p>
                     @endif
 
                     <!-- Languages -->

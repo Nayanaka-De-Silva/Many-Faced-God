@@ -748,6 +748,31 @@ class NpcControllerTest extends TestCase
         $response->assertDontSee('Passive Perception 14 ft.');
     }
 
+    public function test_show_does_not_duplicate_manually_entered_passive_perception(): void
+    {
+        $npc = Npc::factory()->create([
+            'senses' => [
+                ['type' => 'Passive Perception', 'range' => 14, 'category' => 'dc'],
+            ],
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $this->assertEquals(1, substr_count(strtolower($response->getContent()), 'passive perception'));
+    }
+
+    public function test_show_omits_senses_line_when_no_senses_recorded(): void
+    {
+        $npc = Npc::factory()->create(['senses' => []]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertDontSee('Passive Perception', false);
+        $response->assertDontSeeText('Senses');
+    }
+
     private function assertTemplateCheckboxState(TestResponse $response, bool $checked, int $expectedStatus = 200): void
     {
         $response->assertStatus($expectedStatus);
