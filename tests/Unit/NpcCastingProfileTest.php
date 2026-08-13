@@ -207,6 +207,125 @@ class NpcCastingProfileTest extends TestCase
         $this->assertStringContainsString('Faerie Fire', $combinedLines);
     }
 
+    public function test_formatted_innate_lines_order_at_will_first_then_descending_uses(): void
+    {
+        $profile = NpcCastingProfile::factory()->innate()->create();
+        NpcInnateSpellEntry::factory()->perDay(1)->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Darkness',
+        ]);
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Dancing Lights',
+        ]);
+        NpcInnateSpellEntry::factory()->perDay(3)->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Faerie Fire',
+        ]);
+
+        $freshProfile = NpcCastingProfile::find($profile->id);
+        $lines = $freshProfile->formatted_innate_lines;
+
+        $this->assertCount(3, $lines);
+        $this->assertStringStartsWith('At will:', $lines[0]);
+        $this->assertStringStartsWith('3/day each:', $lines[1]);
+        $this->assertStringStartsWith('1/day each:', $lines[2]);
+    }
+
+    public function test_formatted_innate_lines_treats_null_uses_per_day_as_one(): void
+    {
+        $profile = NpcCastingProfile::factory()->innate()->create();
+        NpcInnateSpellEntry::factory()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Darkness',
+            'usage' => NpcInnateSpellEntry::USAGE_PER_DAY,
+            'uses_per_day' => null,
+        ]);
+
+        $freshProfile = NpcCastingProfile::find($profile->id);
+        $lines = $freshProfile->formatted_innate_lines;
+
+        $this->assertCount(1, $lines);
+        $this->assertStringStartsWith('1/day each:', $lines[0]);
+        $this->assertStringContainsString('Darkness', $lines[0]);
+    }
+
+    // --- Innate entry grouping helpers ---
+
+    public function test_at_will_entries_returns_only_at_will_entries_in_sort_order(): void
+    {
+        $profile = NpcCastingProfile::factory()->innate()->create();
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Darkness',
+            'sort_order' => 1,
+        ]);
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Dancing Lights',
+            'sort_order' => 0,
+        ]);
+        NpcInnateSpellEntry::factory()->perDay(2)->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Faerie Fire',
+        ]);
+
+        $freshProfile = NpcCastingProfile::find($profile->id);
+
+        $this->assertSame(
+            ['Dancing Lights', 'Darkness'],
+            $freshProfile->innateAtWillSpells()->pluck('spell_name')->all()
+        );
+    }
+
+    public function test_per_day_entry_groups_are_keyed_by_uses_and_ordered_descending(): void
+    {
+        $profile = NpcCastingProfile::factory()->innate()->create();
+        foreach ([1, 3, 2] as $usesPerDay) {
+            NpcInnateSpellEntry::factory()->perDay($usesPerDay)->create([
+                'casting_profile_id' => $profile->id,
+                'spell_name' => "Spell {$usesPerDay}",
+            ]);
+        }
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Dancing Lights',
+        ]);
+
+        $freshProfile = NpcCastingProfile::find($profile->id);
+        $groups = $freshProfile->innatePerDaySpellGroups();
+
+        $this->assertSame([3, 2, 1], $groups->keys()->all());
+        $this->assertSame('Spell 3', $groups->get(3)->first()->spell_name);
+    }
+
+    public function test_innate_entry_group_helpers_are_empty_for_non_innate_profiles(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->create();
+
+        $this->assertTrue($profile->innateAtWillSpells()->isEmpty());
+        $this->assertTrue($profile->innatePerDaySpellGroups()->isEmpty());
+    }
+
+    public function test_per_day_entry_groups_catches_unexpected_usage_values(): void
+    {
+        // An entry with a usage value that is neither AtWill nor PerDay (a data
+        // error, or a future usage kind) must still surface in the statblock
+        // rather than silently vanishing.
+        $profile = NpcCastingProfile::factory()->innate()->create();
+        NpcInnateSpellEntry::factory()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name' => 'Mystery Spell',
+            'usage' => 'Recharge',
+            'uses_per_day' => 1,
+        ]);
+
+        $freshProfile = NpcCastingProfile::find($profile->id);
+        $groups = $freshProfile->innatePerDaySpellGroups();
+
+        $this->assertSame(['Mystery Spell'], $groups->get(1)->pluck('spell_name')->all());
+    }
+
     public function test_formatted_innate_lines_includes_restriction(): void
     {
         $profile = NpcCastingProfile::factory()->innate()->create();

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class NpcCastingProfile extends Model
 {
@@ -104,6 +105,52 @@ class NpcCastingProfile extends Model
         return $this->hasMany(NpcInnateSpellEntry::class, 'casting_profile_id')->orderBy('sort_order');
     }
 
+    /**
+     * At-will innate spell entries, in sort_order. Empty for non-Innate profiles.
+     * Reads the loaded innateEntries relation, so eager loading still covers it.
+     *
+     * Named to avoid Eloquent's relation-property magic: a public method whose name
+     * matches a property access (e.g. $profile->atWillEntries, no parens) would be
+     * probed as a relationship and throw, since it doesn't return one.
+     *
+     * @return Collection<int, NpcInnateSpellEntry>
+     */
+    public function innateAtWillSpells(): Collection
+    {
+        if (! $this->isInnate()) {
+            return collect();
+        }
+
+        return $this->innateEntries
+            ->where('usage', NpcInnateSpellEntry::USAGE_AT_WILL)
+            ->values();
+    }
+
+    /**
+     * Innate spell entries that aren't at-will, grouped by uses_per_day and ordered
+     * highest count first — the order official 5e statblocks use. A null
+     * uses_per_day counts as 1. Empty for non-Innate profiles.
+     *
+     * Groups everything that isn't at-will, rather than matching USAGE_PER_DAY
+     * exactly, so an unexpected future usage value still surfaces here instead of
+     * silently disappearing from the statblock.
+     *
+     * See innateAtWillSpells() for why this isn't named *Entries().
+     *
+     * @return Collection<int, Collection<int, NpcInnateSpellEntry>>
+     */
+    public function innatePerDaySpellGroups(): Collection
+    {
+        if (! $this->isInnate()) {
+            return collect();
+        }
+
+        return $this->innateEntries
+            ->reject(fn (NpcInnateSpellEntry $entry): bool => $entry->usage === NpcInnateSpellEntry::USAGE_AT_WILL)
+            ->groupBy(fn (NpcInnateSpellEntry $entry): int => $entry->uses_per_day ?? 1)
+            ->sortKeysDesc();
+    }
+
     /** Returns true when this is an Innate casting profile. */
     public function isInnate(): bool
     {
@@ -132,46 +179,40 @@ class NpcCastingProfile extends Model
     }
 
     /**
-     * Group Innate entries into "At will: ..." and "N/day each: ..." display lines.
+     * Group Innate entries into "At will: ..." and "N/day each: ..." display lines,
+     * ordered as official statblocks are: at-will first, then per-day descending.
      * Returns an empty array for non-Innate profiles.
      *
      * @return string[]
      */
     public function getFormattedInnateLinesAttribute(): array
     {
-        if (! $this->isInnate()) {
-            return [];
-        }
-
-        $atWillLabels = [];
-        $perDayGroups = []; // int (uses) => string[]
-
-        foreach ($this->innateEntries as $entry) {
-            $label = $entry->spell_name;
-            if (filled($entry->restriction)) {
-                $label .= " ({$entry->restriction})";
-            }
-
-            if ($entry->usage === NpcInnateSpellEntry::USAGE_AT_WILL) {
-                $atWillLabels[] = $label;
-            } else {
-                $n = $entry->uses_per_day ?? 1;
-                $perDayGroups[$n][] = $label;
-            }
-        }
-
         $lines = [];
 
-        if (! empty($atWillLabels)) {
-            $lines[] = 'At will: ' . implode(', ', $atWillLabels);
+        $atWillEntries = $this->innateAtWillSpells();
+        if ($atWillEntries->isNotEmpty()) {
+            $lines[] = 'At will: ' . $this->joinEntryLabels($atWillEntries);
         }
 
-        ksort($perDayGroups);
-        foreach ($perDayGroups as $count => $spellLabels) {
-            $lines[] = "{$count}/day each: " . implode(', ', $spellLabels);
+        foreach ($this->innatePerDaySpellGroups() as $usesPerDay => $entries) {
+            $lines[] = "{$usesPerDay}/day each: " . $this->joinEntryLabels($entries);
         }
 
         return $lines;
+    }
+
+    /**
+     * Render a group of innate entries as a comma-separated "Spell (restriction)" list.
+     *
+     * @param  Collection<int, NpcInnateSpellEntry>  $entries
+     */
+    private function joinEntryLabels(Collection $entries): string
+    {
+        return $entries
+            ->map(fn (NpcInnateSpellEntry $entry): string => filled($entry->restriction)
+                ? "{$entry->spell_name} ({$entry->restriction})"
+                : $entry->spell_name)
+            ->implode(', ');
     }
 
     /**

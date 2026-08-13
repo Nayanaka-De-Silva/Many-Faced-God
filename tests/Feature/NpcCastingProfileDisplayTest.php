@@ -61,6 +61,39 @@ class NpcCastingProfileDisplayTest extends TestCase
         $response->assertSee('Dominate Monster');
     }
 
+    public function test_innate_spell_groups_render_at_will_first_then_descending_uses(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Drow Priestess']);
+
+        $profile = NpcCastingProfile::factory()->innate()->create([
+            'npc_id' => $npc->id,
+        ]);
+
+        // Created lowest-first on purpose: the display must reorder, not echo insertion order.
+        NpcInnateSpellEntry::factory()->perDay(1)->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name'         => 'Darkness',
+            'spell_library_id'   => null,
+        ]);
+
+        NpcInnateSpellEntry::factory()->perDay(3)->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name'         => 'Faerie Fire',
+            'spell_library_id'   => null,
+        ]);
+
+        NpcInnateSpellEntry::factory()->atWill()->create([
+            'casting_profile_id' => $profile->id,
+            'spell_name'         => 'Dancing Lights',
+            'spell_library_id'   => null,
+        ]);
+
+        $response = $this->get(route('npcs.show', $npc));
+
+        $response->assertStatus(200);
+        $response->assertSeeInOrder(['At will:', '3/day each:', '1/day each:']);
+    }
+
     // ── Spellcasting profile ─────────────────────────────────────────────────
 
     public function test_spellcasting_profile_renders_on_npc_show(): void

@@ -7,7 +7,6 @@
 
 @php
     use App\Models\NpcCastingProfile;
-    use App\Models\NpcInnateSpellEntry;
 
     // Format the attack bonus segment, or empty string when absent.
     $attackBonusText = fn(?int $bonus): string => $bonus !== null
@@ -28,14 +27,13 @@
                     ? 'Innate Spellcasting (Psionics)'
                     : 'Innate Spellcasting';
 
-                $atWillEntries = $profile->innateEntries
-                    ->where('usage', NpcInnateSpellEntry::USAGE_AT_WILL)
-                    ->values();
-
-                $perDayGroups = $profile->innateEntries
-                    ->where('usage', NpcInnateSpellEntry::USAGE_PER_DAY)
-                    ->groupBy('uses_per_day')
-                    ->sortKeys();
+                // Grouping and ordering live on the model so this block and
+                // $profile->formatted_innate_lines share one rule instead of two.
+                // Label rendering (spell name + restriction) is still separate here,
+                // since this block needs live entry models for the clickable spell
+                // links, not the accessor's pre-formatted strings.
+                $atWillEntries = $profile->innateAtWillSpells();
+                $perDayGroups  = $profile->innatePerDaySpellGroups();
             @endphp
 
             <h5 class="text-danger mt-4">{{ $innateHeading }}</h5>
