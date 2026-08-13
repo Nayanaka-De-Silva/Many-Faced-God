@@ -70,9 +70,9 @@
         {{-- ── Spellcasting ────────────────────────────────────────────────── --}}
         @elseif($profile->isSpellcasting())
             @php
-                $slotsLine = $profile->formatted_slots_line;
-                $cantrips  = $profile->cantrips ?? [];
-                $spells    = $profile->spells_known_or_prepared ?? [];
+                $cantrips          = $profile->cantrips ?? [];
+                $slotsWithSpells   = $profile->slots_with_spells;
+                $spellsWithoutLevel = $profile->spells_without_level;
             @endphp
 
             <h5 class="text-danger mt-4">Spellcasting</h5>
@@ -93,13 +93,22 @@
                 </p>
             @endif
 
-            @if($slotsLine)
-                <p class="ms-3 text-muted small">Spell slots: {{ $slotsLine }}</p>
-            @endif
+            @foreach($slotsWithSpells as $group)
+                <p class="ms-3">{{ $group['ordinal'] }} ({{ $group['slots'] }} {{ $group['slots'] === 1 ? 'slot' : 'slots' }}):
+                    @if(!empty($group['spells']))
+                        @foreach($group['spells'] as $idx => $spell)
+                            @if($idx > 0), @endif
+                            @include('npcs.partials._spell_reference', ['libraryId' => $spell['library_id'] ?? null, 'name' => $spell['name']])
+                        @endforeach
+                    @else
+                        &mdash;
+                    @endif
+                </p>
+            @endforeach
 
-            @if(!empty($spells))
+            @if(!empty($spellsWithoutLevel))
                 <p class="ms-3">Spells prepared:
-                    @foreach($spells as $idx => $spell)
+                    @foreach($spellsWithoutLevel as $idx => $spell)
                         @if($idx > 0), @endif
                         @include('npcs.partials._spell_reference', ['libraryId' => $spell['library_id'] ?? null, 'name' => $spell['name']])
                     @endforeach

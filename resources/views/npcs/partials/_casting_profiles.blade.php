@@ -281,6 +281,13 @@
                                             <input type="hidden"
                                                 name="casting_profiles[{{ $pi }}][spells_known_or_prepared][{{ $si }}][library_id]"
                                                 value="{{ $spell['library_id'] ?? '' }}">
+                                            <select name="casting_profiles[{{ $pi }}][spells_known_or_prepared][{{ $si }}][level]"
+                                                class="form-select spell-level-select flex-shrink-0" style="width:auto;">
+                                                <option value="">Lvl</option>
+                                                @for($l = 1; $l <= 9; $l++)
+                                                    <option value="{{ $l }}" {{ ($spell['level'] ?? null) == $l ? 'selected' : '' }}>{{ $l }}</option>
+                                                @endfor
+                                            </select>
                                             <button type="button" class="btn btn-outline-secondary open-spell-picker flex-shrink-0"
                                                 title="Search Spell Library">&#128269;</button>
                                             <button type="button" class="btn btn-outline-danger remove-spell-entry flex-shrink-0">&#215;</button>
@@ -396,10 +403,22 @@
             + '</div></div>';
     }
 
+    function spellLevelSelectHtml(pi, index, listKey) {
+        if (listKey !== 'spells_known_or_prepared') return '';
+        var options = '<option value="">Lvl</option>'
+            + [1,2,3,4,5,6,7,8,9].map(function (n) {
+                return '<option value="' + n + '">' + n + '</option>';
+            }).join('');
+        return '<select name="casting_profiles[' + pi + '][' + listKey + '][' + index + '][level]"'
+            + ' class="form-select spell-level-select flex-shrink-0" style="width:auto;">'
+            + options + '</select>';
+    }
+
     function spellEntryRowHtml(pi, index, listKey) {
         return '<div class="spell-entry-row d-flex gap-2 mb-2 align-items-center">'
             + '<input type="text" name="casting_profiles[' + pi + '][' + listKey + '][' + index + '][name]" class="form-control" placeholder="Spell Name">'
             + '<input type="hidden" name="casting_profiles[' + pi + '][' + listKey + '][' + index + '][library_id]" value="">'
+            + spellLevelSelectHtml(pi, index, listKey)
             + '<button type="button" class="btn btn-outline-secondary open-spell-picker flex-shrink-0" title="Search Spell Library">&#128269;</button>'
             + '<button type="button" class="btn btn-outline-danger remove-spell-entry flex-shrink-0">&#215;</button>'
             + '</div>';
@@ -578,7 +597,8 @@
             if (!row) return;
             window.currentSpellTarget = {
                 nameInput:      row.querySelector('input[type="text"]'),
-                libraryIdInput: row.querySelector('input[type="hidden"]')
+                libraryIdInput: row.querySelector('input[type="hidden"]'),
+                levelSelect:    row.querySelector('.spell-level-select') // null for cantrip rows
             };
             document.getElementById('spellSearchInput').value = '';
             document.getElementById('spellSearchResults').innerHTML =
@@ -626,7 +646,8 @@
                         return '<button type="button"'
                             + ' class="list-group-item list-group-item-action spell-pick-result"'
                             + ' data-spell-id="' + escapeHtml(spell.id) + '"'
-                            + ' data-spell-name="' + escapeHtml(spell.name) + '">'
+                            + ' data-spell-name="' + escapeHtml(spell.name) + '"'
+                            + ' data-spell-level="' + escapeHtml(String(spell.level !== undefined && spell.level !== null ? spell.level : '')) + '">'
                             + '<strong>' + escapeHtml(spell.name) + '</strong>'
                             + ' <span class="text-muted small">Level ' + escapeHtml(spell.level)
                             + ' ' + escapeHtml(spell.school) + '</span>'
@@ -644,13 +665,17 @@
         }, 300);
     });
 
-    // Fill name + library_id when a spell result is clicked, then close modal.
+    // Fill name, library_id, and level (when available) when a spell result is clicked, then close modal.
     document.getElementById('spellPickerModal').addEventListener('click', function (e) {
         var btn = e.target.closest('.spell-pick-result');
         if (!btn) return;
         if (window.currentSpellTarget) {
             window.currentSpellTarget.nameInput.value      = btn.dataset.spellName;
             window.currentSpellTarget.libraryIdInput.value = btn.dataset.spellId;
+            // Auto-fill level select for spell rows (levelSelect is null for cantrip rows)
+            if (window.currentSpellTarget.levelSelect && btn.dataset.spellLevel) {
+                window.currentSpellTarget.levelSelect.value = btn.dataset.spellLevel;
+            }
         }
         bootstrap.Modal.getInstance(document.getElementById('spellPickerModal')).hide();
     });

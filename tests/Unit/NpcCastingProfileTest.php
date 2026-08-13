@@ -407,4 +407,130 @@ class NpcCastingProfileTest extends TestCase
 
         $this->assertNull($profile->formatted_pact_magic_line);
     }
+
+    // --- Slots with spells ---
+
+    public function test_slots_with_spells_returns_empty_array_for_non_spellcasting(): void
+    {
+        $innate = NpcCastingProfile::factory()->innate()->make();
+        $this->assertSame([], $innate->slots_with_spells);
+
+        $pact = NpcCastingProfile::factory()->pactMagic()->make();
+        $this->assertSame([], $pact->slots_with_spells);
+    }
+
+    public function test_slots_with_spells_groups_leveled_spells_by_level_sorted_ascending(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->create([
+            'slots' => [1 => 4, 2 => 3],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+                ['library_id' => null, 'name' => 'Shield', 'level' => 1],
+                ['library_id' => null, 'name' => 'Misty Step', 'level' => 2],
+            ],
+        ]);
+
+        $groups = $profile->slots_with_spells;
+
+        $this->assertCount(2, $groups);
+        $this->assertSame(1, $groups[0]['level']);
+        $this->assertSame('1st level', $groups[0]['ordinal']);
+        $this->assertSame(4, $groups[0]['slots']);
+        $this->assertCount(2, $groups[0]['spells']);
+        $this->assertSame('Magic Missile', $groups[0]['spells'][0]['name']);
+        $this->assertSame(2, $groups[1]['level']);
+        $this->assertSame('2nd level', $groups[1]['ordinal']);
+        $this->assertSame(3, $groups[1]['slots']);
+        $this->assertCount(1, $groups[1]['spells']);
+    }
+
+    public function test_slots_with_spells_includes_slot_levels_with_no_assigned_spells(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->create([
+            'slots' => [1 => 4, 2 => 3],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+                // No level-2 spell assigned
+            ],
+        ]);
+
+        $groups = $profile->slots_with_spells;
+
+        // Level 2 has slots but no spells — must not be dropped
+        $this->assertCount(2, $groups);
+        $level2 = collect($groups)->firstWhere('level', 2);
+        $this->assertNotNull($level2);
+        $this->assertSame(3, $level2['slots']);
+        $this->assertSame([], $level2['spells']);
+    }
+
+    public function test_slots_with_spells_drops_rows_with_zero_slots_and_no_spells(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->create([
+            'slots' => [1 => 4, 2 => 0],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+            ],
+        ]);
+
+        $groups = $profile->slots_with_spells;
+
+        // Level 2 has 0 slots and no spells — must be dropped
+        $this->assertCount(1, $groups);
+        $this->assertSame(1, $groups[0]['level']);
+    }
+
+    public function test_slots_with_spells_sorts_levels_ascending_regardless_of_slot_key_order(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->create([
+            'slots' => [3 => 2, 1 => 4, 2 => 3],
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Fireball', 'level' => 3],
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+            ],
+        ]);
+
+        $groups = $profile->slots_with_spells;
+
+        $this->assertSame([1, 2, 3], array_column($groups, 'level'));
+    }
+
+    // --- Spells without level ---
+
+    public function test_spells_without_level_returns_empty_array_for_non_spellcasting(): void
+    {
+        $innate = NpcCastingProfile::factory()->innate()->make();
+        $this->assertSame([], $innate->spells_without_level);
+
+        $pact = NpcCastingProfile::factory()->pactMagic()->make();
+        $this->assertSame([], $pact->spells_without_level);
+    }
+
+    public function test_spells_without_level_returns_entries_with_no_level_key(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->make([
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile'],           // no level key
+                ['library_id' => null, 'name' => 'Shield', 'level' => 1],   // has level — excluded
+                ['library_id' => null, 'name' => 'Mage Armor', 'level' => null], // null level — included
+            ],
+        ]);
+
+        $unlevel = $profile->spells_without_level;
+
+        $this->assertCount(2, $unlevel);
+        $this->assertSame('Magic Missile', $unlevel[0]['name']);
+        $this->assertSame('Mage Armor', $unlevel[1]['name']);
+    }
+
+    public function test_spells_without_level_excludes_spells_with_a_level_value(): void
+    {
+        $profile = NpcCastingProfile::factory()->spellcasting()->make([
+            'spells_known_or_prepared' => [
+                ['library_id' => null, 'name' => 'Magic Missile', 'level' => 1],
+            ],
+        ]);
+
+        $this->assertSame([], $profile->spells_without_level);
+    }
 }
