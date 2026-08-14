@@ -4,8 +4,6 @@ use App\Http\Controllers\Api\V1\DiscoveryController;
 use App\Http\Controllers\Api\V1\FolderController;
 use App\Http\Controllers\Api\V1\NpcController;
 use App\Http\Controllers\Api\V1\TemplateController;
-use App\Http\Middleware\AddApiVersionHeader;
-use App\Http\Middleware\SetApiCacheHeaders;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,9 +16,11 @@ use Illuminate\Support\Facades\Route;
 | definition exists in AppServiceProvider, and a named throttle with no
 | registered limiter will 500.
 |
-| AddApiVersionHeader stamps X-MFG-API-Version: 1 on matched route responses.
-| Unmatched-route error responses (404, 405) receive the header from the
-| exception render hook in bootstrap/app.php.
+| X-MFG-API-Version and cache/CORS headers are stamped by SetApiCacheHeaders,
+| registered GLOBALLY in bootstrap/app.php (not here) — a route-group
+| middleware never runs for a CORS preflight OPTIONS request, since
+| HandleCors short-circuits it before routing. See that middleware's
+| docblock for why it must be global.
 |
 | Route params for {npc}, {template}, {folder} use int type-hinted controller
 | args rather than implicit route model binding, so each controller can scope
@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')
-    ->middleware(['throttle:300,1', AddApiVersionHeader::class, SetApiCacheHeaders::class])
+    ->middleware(['throttle:300,1'])
     ->group(function (): void {
         Route::get('/', [DiscoveryController::class, 'root']);
         Route::get('/health', [DiscoveryController::class, 'health']);

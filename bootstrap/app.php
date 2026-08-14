@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetApiCacheHeaders;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,7 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Prepended so it wraps OUTSIDE HandleCors (registered further down
+        // the default global stack). A CORS preflight OPTIONS request is
+        // short-circuited by HandleCors before routing/route-group
+        // middleware ever runs, so a route-scoped middleware would never
+        // see it — this is the only way api/v1/* preflight responses get
+        // X-MFG-API-Version and Access-Control-Expose-Headers stamped too.
+        // The middleware itself no-ops for every non-api/v1 path.
+        $middleware->prepend(SetApiCacheHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Return JSON for any request hitting api/* — regardless of Accept header.

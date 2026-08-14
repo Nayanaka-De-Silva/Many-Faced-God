@@ -323,9 +323,9 @@
 									"    console.warn('No NPCs returned \u2014 seed the database or later requests will be skipped.');",
 									"} else {",
 									"    const npc = body.data[0];",
-									"    pm.collectionVariables.set('npcId', npc.id);",
+									"    pm.environment.set('npcId', npc.id);",
 									"    if (npc.folder && npc.folder.id) {",
-									"        pm.collectionVariables.set('folderId', npc.folder.id);",
+									"        pm.environment.set('folderId', npc.folder.id);",
 									"    }",
 									"",
 									"    pm.test('List items are full statblocks, not summaries', function () {",
@@ -566,7 +566,7 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('200 OK', () => pm.response.to.have.status(200));",
-									"const data = pm.response.json().data;",
+									"const crSortedData = pm.response.json().data;",
 									"",
 									"const ORDER = ['0','1/8','1/4','1/2','1','2','3','4','5','6','7','8','9','10',",
 									"               '11','12','13','14','15','16','17','18','19','20','21','22',",
@@ -575,7 +575,7 @@
 									"pm.test('Ranks ascend and nulls sort last', function () {",
 									"    let lastRank = -1;",
 									"    let seenNull = false;",
-									"    data.forEach(function (n) {",
+									"    crSortedData.forEach(function (n) {",
 									"        const value = n.challengeRating.value;",
 									"        if (value === null) { seenNull = true; return; }",
 									"        pm.expect(seenNull, 'a rated NPC appeared after a null-CR NPC').to.be.false;",
@@ -672,15 +672,15 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('200 OK', () => pm.response.to.have.status(200));",
-									"const data = pm.response.json().data;",
+									"const bulkData = pm.response.json().data;",
 									"",
 									"pm.test('Returns the requested NPC', function () {",
-									"    const wanted = String(pm.collectionVariables.get('npcId'));",
-									"    pm.expect(data.map(n => String(n.id))).to.include(wanted);",
+									"    const wanted = String(pm.environment.get('npcId'));",
+									"    pm.expect(bulkData.map(n => String(n.id))).to.include(wanted);",
 									"});",
 									"",
 									"pm.test('Silently omits the missing id rather than 404ing', function () {",
-									"    pm.expect(data.map(n => String(n.id))).to.not.include('999999');",
+									"    pm.expect(bulkData.map(n => String(n.id))).to.not.include('999999');",
 									"});"
 								]
 							}
@@ -1001,16 +1001,16 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('200 OK', () => pm.response.to.have.status(200));",
-									"const data = pm.response.json().data;",
+									"const templateListData = pm.response.json().data;",
 									"",
 									"pm.test('Every entry is a template', function () {",
-									"    data.forEach(function (t) {",
+									"    templateListData.forEach(function (t) {",
 									"        pm.expect(t.isTemplate, 'non-template ' + t.id + ' leaked').to.eql(true);",
 									"    });",
 									"});",
 									"",
-									"if (data.length > 0) {",
-									"    pm.collectionVariables.set('templateId', data[0].id);",
+									"if (templateListData.length > 0) {",
+									"    pm.environment.set('templateId', templateListData[0].id);",
 									"} else {",
 									"    console.warn('No templates found \u2014 the cross-endpoint isolation test will be skipped.');",
 									"}"
@@ -1048,7 +1048,7 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"if (!pm.collectionVariables.get('templateId')) {",
+									"if (!pm.environment.get('templateId')) {",
 									"    pm.test.skip('No template seeded');",
 									"} else {",
 									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
@@ -1091,7 +1091,7 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"if (!pm.collectionVariables.get('templateId')) {",
+									"if (!pm.environment.get('templateId')) {",
 									"    pm.test.skip('No template seeded');",
 									"} else {",
 									"    pm.test('404 Not Found', () => pm.response.to.have.status(404));",
@@ -1139,10 +1139,10 @@
 								"type": "text/javascript",
 								"exec": [
 									"pm.test('200 OK', () => pm.response.to.have.status(200));",
-									"const data = pm.response.json().data;",
+									"const folderTreeData = pm.response.json().data;",
 									"",
 									"pm.test('Returns a collection', function () {",
-									"    pm.expect(data).to.be.an('array');",
+									"    pm.expect(folderTreeData).to.be.an('array');",
 									"});",
 									"",
 									"pm.test('Folders carry counts and nest safely', function () {",
@@ -1155,7 +1155,7 @@
 									"            if (Array.isArray(f.children)) { walk(f.children, depth + 1); }",
 									"        });",
 									"    };",
-									"    walk(data, 0);",
+									"    walk(folderTreeData, 0);",
 									"});"
 								]
 							}
@@ -1191,7 +1191,7 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"if (!pm.collectionVariables.get('folderId')) {",
+									"if (!pm.environment.get('folderId')) {",
 									"    pm.test.skip('No folder seeded \u2014 no listed NPC belonged to one');",
 									"} else {",
 									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
@@ -1242,7 +1242,7 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"if (!pm.collectionVariables.get('folderId')) {",
+									"if (!pm.environment.get('folderId')) {",
 									"    pm.test.skip('No folder seeded');",
 									"} else {",
 									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
