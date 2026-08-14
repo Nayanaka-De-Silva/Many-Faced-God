@@ -111,6 +111,47 @@ docker-compose exec app php artisan test
 | GET | `/folders` | List folders |
 | GET | `/templates` | List templates |
 
+### Public API (v1)
+
+The routes above are the browser-facing Blade application. MFG also exposes a
+separate, versioned, **read-only** JSON API under `/api/v1` for external
+consumers — currently used by **Manticore Arena** to import NPC statblocks
+into combat without the DM retyping them.
+
+- **No authentication.** Docker/Tailscale network isolation is the trust
+  boundary — do not expose `/api/v1` directly to the public internet.
+- **Envelopes:** lists return `{"data":[...],"meta":{"page","pageSize","totalItems","totalPages"}}`;
+  single resources return `{"data":{...}}`; errors return
+  `{"error":{"code","message"}}`.
+- **Caching:** `GET /api/v1/npcs/{id}` and `GET /api/v1/templates/{id}` serve
+  an `ETag`, computed from the NPC and all of its child rows (traits,
+  actions, spellcasting). Send it back as `If-None-Match` to get a `304`
+  with no body. `ETag` is exposed cross-origin via
+  `Access-Control-Expose-Headers` so browser clients can read it.
+- **Challenge Rating:** always serialized as an object —
+  `{"value","xp","xpIfDangerous"}` — never a bare number or a coerced `0`.
+  A missing CR is honestly reported as `null`.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/v1/` | Discovery root — version, endpoint map, spec link |
+| GET | `/api/v1/health` | Liveness probe |
+| GET | `/api/v1/metadata` | Static vocabularies (alignments, skills, CR→XP, etc.), cached 24h |
+| GET | `/api/v1/openapi.yaml` | The full contract, machine-readable |
+| GET | `/api/v1/npcs` | Paginated NPC statblocks (excludes templates) |
+| GET | `/api/v1/npcs/{id}` | One NPC statblock |
+| GET | `/api/v1/templates` | Paginated templates |
+| GET | `/api/v1/templates/{id}` | One template |
+| GET | `/api/v1/folders` | Folder tree with counts |
+| GET | `/api/v1/folders/{id}` | One folder, with breadcrumb and children |
+
+The authoritative machine-readable contract is
+[`openapi/v1.yaml`](openapi/v1.yaml), also served live at
+`/api/v1/openapi.yaml`. An executable Postman collection covering the full
+contract lives at
+[`docs/api/postman/many-faced-god-api.postman_collection.json`](docs/api/postman/many-faced-god-api.postman_collection.json)
+(paired environment: `docs/api/postman/many-faced-god.postman_environment.json`).
+
 ## NPC Creation Workflows
 
 1. **From Scratch** - Complete manual form entry
