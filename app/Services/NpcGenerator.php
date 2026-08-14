@@ -5,27 +5,20 @@ namespace App\Services;
 use App\Models\Npc;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
+use App\Support\ChallengeRating;
 
 class NpcGenerator
 {
     /**
-     * Challenge ratings with corresponding proficiency bonuses and XP.
+     * Bounded CR pool for random generation.
+     *
+     * Deliberately limited to CR 0–10 to preserve the same generator behaviour
+     * that existed before the ChallengeRating support class was introduced.
+     * ChallengeRating itself covers all 31 CRs correctly; this constraint is a
+     * generator design decision, not a data limitation.
      */
-    private const CR_DATA = [
-        '0' => ['proficiency' => 2, 'xp' => 0],
-        '1/8' => ['proficiency' => 2, 'xp' => 25],
-        '1/4' => ['proficiency' => 2, 'xp' => 50],
-        '1/2' => ['proficiency' => 2, 'xp' => 100],
-        '1' => ['proficiency' => 2, 'xp' => 200],
-        '2' => ['proficiency' => 2, 'xp' => 450],
-        '3' => ['proficiency' => 2, 'xp' => 700],
-        '4' => ['proficiency' => 2, 'xp' => 1100],
-        '5' => ['proficiency' => 3, 'xp' => 1800],
-        '6' => ['proficiency' => 3, 'xp' => 2300],
-        '7' => ['proficiency' => 3, 'xp' => 2900],
-        '8' => ['proficiency' => 3, 'xp' => 3900],
-        '9' => ['proficiency' => 4, 'xp' => 5000],
-        '10' => ['proficiency' => 4, 'xp' => 5900],
+    private const GENERATOR_CR_POOL = [
+        '0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
     ];
 
     /**
@@ -65,7 +58,8 @@ class NpcGenerator
     public function generate(array $options = []): Npc
     {
         $cr = $options['challenge_rating'] ?? $this->randomChallengeRating();
-        $crData = self::CR_DATA[$cr] ?? self::CR_DATA['1'];
+        // Fall back to CR 1 proficiency if an unrecognised CR is supplied.
+        $proficiencyBonus = ChallengeRating::proficiencyBonus($cr) ?? ChallengeRating::proficiencyBonus('1');
 
         $npcType = $options['npc_type'] ?? $this->randomNpcType();
         $alignment = $options['alignment'] ?? $this->randomAlignment();
@@ -98,12 +92,12 @@ class NpcGenerator
             'senses' => $this->randomSenses($npcType),
             'languages' => $this->randomLanguages($npcType),
             'challenge_rating' => $cr,
-            'proficiency_bonus' => $crData['proficiency'],
+            'proficiency_bonus' => $proficiencyBonus,
             'is_template' => false,
         ]);
 
         // Add basic actions
-        $this->addBasicActions($npc, $crData['proficiency']);
+        $this->addBasicActions($npc, $proficiencyBonus);
 
         return $npc;
     }
@@ -135,14 +129,32 @@ class NpcGenerator
     }
 
     /**
-     * Convert CR string to numeric value.
+     * Numeric representation of a CR string, delegating to ChallengeRating
+     * for the 34 canonical DMG values.
+     *
+     * The web NPC-generation form's challenge_rating field validates only as
+     * nullable|string (no enum) — a non-canonical value like "1/3" or "0.5"
+     * reaches this method. Falling straight through to 0.0 for anything
+     * ChallengeRating doesn't recognise would silently generate a
+     * CR-0-strength statblock while the user's original (non-canonical)
+     * value is still stored on the record. Fall back to the original
+     * generic "a/b" fraction / float-cast parsing instead, matching this
+     * method's pre-ChallengeRating behavior for non-canonical input.
      */
     private function crToNumeric(string $cr): float
     {
-        if (str_contains($cr, '/')) {
-            $parts = explode('/', $cr);
-            return (int) $parts[0] / (int) $parts[1];
+        $canonical = ChallengeRating::numericValue($cr);
+        if ($canonical !== null) {
+            return $canonical;
         }
+
+        if (str_contains($cr, '/')) {
+            [$numerator, $denominator] = array_pad(explode('/', $cr, 2), 2, '1');
+            $denominator = (float) $denominator;
+
+            return $denominator !== 0.0 ? (float) $numerator / $denominator : 0.0;
+        }
+
         return (float) $cr;
     }
 
@@ -248,11 +260,11 @@ class NpcGenerator
     }
 
     /**
-     * Random challenge rating.
+     * Random challenge rating, drawn from the bounded GENERATOR_CR_POOL.
      */
     private function randomChallengeRating(): string
     {
-        return collect(array_keys(self::CR_DATA))->random();
+        return collect(self::GENERATOR_CR_POOL)->random();
     }
 
     /**

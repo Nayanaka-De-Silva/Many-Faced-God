@@ -307,6 +307,57 @@ class Npc extends Model
     }
 
     /**
+     * Calculate the deterministic average hit points for a given dice string.
+     *
+     * Uses the mathematical average of each die (floor((diceSize + 1) / 2) per die),
+     * plus any flat modifier. Returns null for unparseable input, minimum 1 otherwise.
+     * Safe to call from API code — no rand() involved.
+     */
+    public static function averageHitPoints(string $hitDice): ?int
+    {
+        if (!preg_match('/^(\d+)d(\d+)([+-]\d+)?$/', $hitDice, $matches)) {
+            return null;
+        }
+
+        $numDice  = (int) $matches[1];
+        $diceSize = (int) $matches[2];
+        $modifier = isset($matches[3]) ? (int) $matches[3] : 0;
+
+        $average = (int) floor($numDice * ($diceSize + 1) / 2 + $modifier);
+
+        return max(1, $average);
+    }
+
+    /**
+     * The latest updated_at across this NPC and all of its statblock children
+     * (traits, actions, spellcasting/castingProfiles+innateEntries).
+     *
+     * Used for ETag computation. There is no $touches anywhere in this app
+     * (deliberately — see STATBLOCK_EAGER_LOADS docblock), so editing a
+     * child row does NOT bump npcs.updated_at. Callers must scan the
+     * children directly instead of trusting the NPC row's own timestamp.
+     *
+     * Relies on STATBLOCK_EAGER_LOADS already being loaded — issues no
+     * additional queries.
+     */
+    public function freshestUpdatedAt(): ?\Illuminate\Support\Carbon
+    {
+        $timestamps = collect([$this->updated_at])
+            ->merge($this->traits->pluck('updated_at'))
+            ->merge($this->actions->pluck('updated_at'))
+            ->merge($this->spellcasting !== null ? [$this->spellcasting->updated_at] : [])
+            ->merge($this->castingProfiles->pluck('updated_at'))
+            ->merge($this->castingProfiles->flatMap->innateEntries->pluck('updated_at'))
+            ->filter();
+
+        // Nullable: a row with every timestamp null (e.g. seeded via a raw
+        // insert that bypassed Eloquent's automatic timestamps) has nothing
+        // to compute a max from. Callers must handle null explicitly rather
+        // than assume a timestamp always exists.
+        return $timestamps->max();
+    }
+
+    /**
      * Roll hit points based on hit dice.
      */
     public static function rollHitPoints(string $hitDice): int

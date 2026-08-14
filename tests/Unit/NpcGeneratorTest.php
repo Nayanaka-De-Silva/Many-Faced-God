@@ -78,6 +78,43 @@ class NpcGeneratorTest extends TestCase
         $this->assertEquals(4, $npc->proficiency_bonus);
     }
 
+    /**
+     * Verifies the bug that existed when CR_DATA only covered CR 0-10:
+     * passing CR 11+ previously silently fell back to CR 1 data (proficiency +2).
+     * After migration to ChallengeRating::proficiencyBonus(), the correct DMG
+     * band values are returned.
+     */
+    public function test_generate_sets_correct_proficiency_bonus_for_cr_above_10(): void
+    {
+        // CR 11 falls in the 9–12 band → +4
+        $npc = $this->generator->generate(['challenge_rating' => '11']);
+        $this->assertEquals(4, $npc->proficiency_bonus);
+
+        // CR 17 falls in the 17–20 band → +6
+        $npc = $this->generator->generate(['challenge_rating' => '17']);
+        $this->assertEquals(6, $npc->proficiency_bonus);
+
+        // CR 25 falls in the 25–28 band → +8
+        $npc = $this->generator->generate(['challenge_rating' => '25']);
+        $this->assertEquals(8, $npc->proficiency_bonus);
+    }
+
+    /**
+     * Proves that random generation stays within the bounded GENERATOR_CR_POOL
+     * (CR 0–10 only), preserving the same generation behaviour that existed when
+     * CR_DATA covered those 11 values. ChallengeRating now handles higher CRs
+     * correctly, but the generator pool is deliberately constrained.
+     */
+    public function test_random_npc_challenge_rating_stays_within_generator_pool(): void
+    {
+        $allowedCrs = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+        for ($i = 0; $i < 20; $i++) {
+            $npc = $this->generator->generate();
+            $this->assertContains($npc->challenge_rating, $allowedCrs);
+        }
+    }
+
     public function test_generate_sets_hit_points(): void
     {
         $npc = $this->generator->generate();
@@ -92,5 +129,39 @@ class NpcGeneratorTest extends TestCase
 
         $this->assertNotNull($npc->armor_class);
         $this->assertGreaterThanOrEqual(10, $npc->armor_class);
+    }
+
+    /**
+     * The web NPC-generation form's challenge_rating field validates only as
+     * nullable|string (no enum), so a non-canonical value can reach
+     * NpcGenerator::generate() -> crToNumeric() directly. Before the
+     * fallback was added, ChallengeRating::numericValue() returning null
+     * for a non-canonical CR collapsed crToNumeric() straight to 0.0,
+     * silently generating a CR-0-strength statblock while
+     * challenge_rating itself still stored the user's original
+     * non-canonical string.
+     *
+     * Calls the private method via reflection to assert the exact
+     * deterministic value, bypassing the generator's rand()-based stat
+     * noise entirely.
+     */
+    public function test_crToNumeric_falls_back_to_generic_parsing_for_non_canonical_crs(): void
+    {
+        $crToNumeric = new \ReflectionMethod(NpcGenerator::class, 'crToNumeric');
+        $crToNumeric->setAccessible(true);
+
+        // "1/3" is not one of the 34 canonical D&D CRs (D&D only uses 1/8,
+        // 1/4, 1/2 as fractions) but is exactly the kind of free-text value
+        // a DM might type into the unvalidated form field.
+        $this->assertEqualsWithDelta(1 / 3, $crToNumeric->invoke($this->generator, '1/3'), 0.0001);
+
+        // A canonical value must still resolve via ChallengeRating, not the
+        // fallback parser.
+        $this->assertSame(2.0, $crToNumeric->invoke($this->generator, '2'));
+        $this->assertSame(0.5, $crToNumeric->invoke($this->generator, '1/2'));
+
+        // Genuinely unparseable input still degrades to 0.0 rather than
+        // throwing.
+        $this->assertSame(0.0, $crToNumeric->invoke($this->generator, 'not-a-cr'));
     }
 }
