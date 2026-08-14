@@ -211,14 +211,23 @@ class Folder extends Model
     /**
      * Get the breadcrumb path to this folder.
      */
+    /**
+     * Maximum parent-chain depth walked when building a breadcrumb.
+     * Guards against a corrupted parent_id cycle looping forever — the
+     * same cap FolderController::MAX_DEPTH uses for the folder tree.
+     */
+    private const MAX_BREADCRUMB_DEPTH = 20;
+
     public function getBreadcrumbAttribute(): array
     {
         $breadcrumb = [];
         $folder = $this;
+        $depth = 0;
 
-        while ($folder) {
+        while ($folder && $depth < self::MAX_BREADCRUMB_DEPTH) {
             array_unshift($breadcrumb, $folder);
             $folder = $folder->parent;
+            $depth++;
         }
 
         return $breadcrumb;

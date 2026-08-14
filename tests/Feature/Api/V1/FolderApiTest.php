@@ -84,6 +84,40 @@ class FolderApiTest extends TestCase
         $this->assertLessThanOrEqual(200, $response->getStatusCode());
     }
 
+    /**
+     * The existing cycle test above only exercises the tree-building path
+     * (FolderController::MAX_DEPTH). GET /folders/{id} instead walks
+     * $folder->breadcrumb (Folder::getBreadcrumbAttribute()), a separate,
+     * pre-existing accessor that had no depth/cycle guard of its own until
+     * this fix — a corrupted parent_id cycle would otherwise hang the
+     * request via its bare `while ($folder)` loop, on this newly-public,
+     * unauthenticated endpoint.
+     */
+    public function test_folder_show_breadcrumb_does_not_hang_on_cycle(): void
+    {
+        $folderA = Folder::factory()->create(['name' => 'FolderA', 'parent_id' => null]);
+        $folderB = Folder::factory()->create(['name' => 'FolderB', 'parent_id' => $folderA->id]);
+        \DB::table('folders')->where('id', $folderA->id)->update(['parent_id' => $folderB->id]);
+
+        $response = $this->getJson("/api/v1/folders/{$folderA->id}");
+
+        $this->assertNotEquals(500, $response->getStatusCode(), 'Cyclic breadcrumb must not cause a 500');
+        $response->assertStatus(200);
+        $this->assertIsArray($response->json('data.breadcrumb'));
+    }
+
+    /**
+     * The {folder} route param is constrained to digits — see the matching
+     * regression test in NpcApiTest for why this matters.
+     */
+    public function test_folders_show_returns_404_not_500_for_non_numeric_id(): void
+    {
+        $response = $this->getJson('/api/v1/folders/abc');
+
+        $response->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
     // ── /folders/{id} show ───────────────────────────────────────────────────
 
     public function test_folders_show_returns_folder_with_breadcrumb(): void

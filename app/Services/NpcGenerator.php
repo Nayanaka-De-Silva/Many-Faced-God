@@ -129,12 +129,33 @@ class NpcGenerator
     }
 
     /**
-     * Numeric representation of a CR string, delegating to ChallengeRating.
-     * Falls back to 0.0 for unrecognised values so callers don't need null checks.
+     * Numeric representation of a CR string, delegating to ChallengeRating
+     * for the 34 canonical DMG values.
+     *
+     * The web NPC-generation form's challenge_rating field validates only as
+     * nullable|string (no enum) — a non-canonical value like "1/3" or "0.5"
+     * reaches this method. Falling straight through to 0.0 for anything
+     * ChallengeRating doesn't recognise would silently generate a
+     * CR-0-strength statblock while the user's original (non-canonical)
+     * value is still stored on the record. Fall back to the original
+     * generic "a/b" fraction / float-cast parsing instead, matching this
+     * method's pre-ChallengeRating behavior for non-canonical input.
      */
     private function crToNumeric(string $cr): float
     {
-        return ChallengeRating::numericValue($cr) ?? 0.0;
+        $canonical = ChallengeRating::numericValue($cr);
+        if ($canonical !== null) {
+            return $canonical;
+        }
+
+        if (str_contains($cr, '/')) {
+            [$numerator, $denominator] = array_pad(explode('/', $cr, 2), 2, '1');
+            $denominator = (float) $denominator;
+
+            return $denominator !== 0.0 ? (float) $numerator / $denominator : 0.0;
+        }
+
+        return (float) $cr;
     }
 
     /**

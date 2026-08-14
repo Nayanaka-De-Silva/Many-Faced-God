@@ -40,7 +40,14 @@ class TemplateController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $params = $request->only(self::ALLOWED_PARAMS);
+        // Only scalar values are meaningful params here. A malformed shape
+        // like ?sort[]=name would otherwise reach array_key_exists()/
+        // strtolower() below as an array and throw an uncaught TypeError —
+        // treat it the same as an unknown param instead: ignored silently.
+        $params = array_filter(
+            $request->only(self::ALLOWED_PARAMS),
+            fn ($value): bool => is_scalar($value)
+        );
 
         if (!empty($params['sort']) && !array_key_exists($params['sort'], self::SORT_MAP)) {
             return response()->json([
@@ -118,7 +125,7 @@ class TemplateController extends Controller
 
         $listEtag = md5(implode(':', [
             'templates',
-            $templates->map(fn (Npc $npc): int => $npc->freshestUpdatedAt()->timestamp)->max() ?? '0',
+            $templates->map(fn (Npc $npc): int => $npc->freshestUpdatedAt()?->timestamp ?? time())->max() ?? '0',
             $total,
             http_build_query($params),
         ]));
@@ -158,6 +165,6 @@ class TemplateController extends Controller
 
         return response()
             ->json(['data' => new NpcResource($npcModel)])
-            ->setEtag(md5('npc:' . $npcModel->id . ':' . $npcModel->freshestUpdatedAt()->timestamp));
+            ->setEtag(md5('npc:' . $npcModel->id . ':' . ($npcModel->freshestUpdatedAt()?->timestamp ?? time())));
     }
 }

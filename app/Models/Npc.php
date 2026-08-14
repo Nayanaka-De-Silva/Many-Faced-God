@@ -340,7 +340,7 @@ class Npc extends Model
      * Relies on STATBLOCK_EAGER_LOADS already being loaded — issues no
      * additional queries.
      */
-    public function freshestUpdatedAt(): \Illuminate\Support\Carbon
+    public function freshestUpdatedAt(): ?\Illuminate\Support\Carbon
     {
         $timestamps = collect([$this->updated_at])
             ->merge($this->traits->pluck('updated_at'))
@@ -350,6 +350,10 @@ class Npc extends Model
             ->merge($this->castingProfiles->flatMap->innateEntries->pluck('updated_at'))
             ->filter();
 
+        // Nullable: a row with every timestamp null (e.g. seeded via a raw
+        // insert that bypassed Eloquent's automatic timestamps) has nothing
+        // to compute a max from. Callers must handle null explicitly rather
+        // than assume a timestamp always exists.
         return $timestamps->max();
     }
 

@@ -139,6 +139,36 @@ class NpcApiTest extends TestCase
             ->assertJsonPath('error.code', 'NOT_FOUND');
     }
 
+    /**
+     * The {npc} route param is constrained to digits. Without that
+     * constraint, a non-numeric segment reaches show(int $npc) and PHP's
+     * weak-mode int coercion throws an uncaught TypeError on a non-numeric
+     * string, yielding a 500 instead of the documented 404.
+     */
+    public function test_show_returns_404_not_500_for_non_numeric_id(): void
+    {
+        $response = $this->getJson('/api/v1/npcs/abc');
+
+        $response->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
+
+    /**
+     * ?sort[]=name is a malformed shape for a param that's normally a
+     * scalar string. Without a scalar guard, array_key_exists() below
+     * receives an array as the key argument and throws an uncaught
+     * TypeError, leaking a raw PHP error message via the generic 500
+     * handler instead of behaving like any other unrecognised param.
+     */
+    public function test_array_shaped_sort_param_is_ignored_not_500(): void
+    {
+        Npc::factory()->count(2)->create();
+
+        $response = $this->getJson('/api/v1/npcs?sort[]=name&sort[]=hitPoints');
+
+        $response->assertStatus(200);
+    }
+
     // ── sourceRef ────────────────────────────────────────────────────────────
 
     public function test_source_ref_follows_mfg_npc_id_format(): void

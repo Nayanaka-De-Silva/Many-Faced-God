@@ -74,6 +74,42 @@ class ApiCacheHeadersTest extends TestCase
         $this->assertStringContainsString('etag', $exposed);
     }
 
+    /**
+     * A fresh Response('', 304) — the original implementation — discards
+     * every header HandleCors already stamped on the response (notably
+     * Access-Control-Allow-Origin), breaking revalidation for exactly the
+     * cross-origin browser client this ETag contract exists to serve.
+     * setNotModified() mutates the original response in place instead,
+     * preserving those headers.
+     */
+    public function test_304_response_preserves_cors_headers_from_original_response(): void
+    {
+        $npc = Npc::factory()->create(['is_template' => false]);
+
+        $first = $this->get("/api/v1/npcs/{$npc->id}", [
+            'Accept' => 'application/json',
+            'Origin' => 'http://localhost:5173',
+        ]);
+        $etag = $first->headers->get('ETag');
+        $this->assertNotEmpty($etag, 'baseline request must carry an ETag');
+        $this->assertNotEmpty(
+            $first->headers->get('Access-Control-Allow-Origin'),
+            'baseline request must carry Access-Control-Allow-Origin'
+        );
+
+        $second = $this->get("/api/v1/npcs/{$npc->id}", [
+            'Accept'        => 'application/json',
+            'Origin'        => 'http://localhost:5173',
+            'If-None-Match' => $etag,
+        ]);
+
+        $second->assertStatus(304);
+        $this->assertNotEmpty(
+            $second->headers->get('Access-Control-Allow-Origin'),
+            '304 response lost Access-Control-Allow-Origin from the original response'
+        );
+    }
+
     public function test_repeat_fetch_body_is_byte_identical_regardless_of_etag_machinery(): void
     {
         $npc = Npc::factory()->create(['is_template' => false]);

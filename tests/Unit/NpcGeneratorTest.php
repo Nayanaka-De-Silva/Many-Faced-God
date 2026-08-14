@@ -130,4 +130,38 @@ class NpcGeneratorTest extends TestCase
         $this->assertNotNull($npc->armor_class);
         $this->assertGreaterThanOrEqual(10, $npc->armor_class);
     }
+
+    /**
+     * The web NPC-generation form's challenge_rating field validates only as
+     * nullable|string (no enum), so a non-canonical value can reach
+     * NpcGenerator::generate() -> crToNumeric() directly. Before the
+     * fallback was added, ChallengeRating::numericValue() returning null
+     * for a non-canonical CR collapsed crToNumeric() straight to 0.0,
+     * silently generating a CR-0-strength statblock while
+     * challenge_rating itself still stored the user's original
+     * non-canonical string.
+     *
+     * Calls the private method via reflection to assert the exact
+     * deterministic value, bypassing the generator's rand()-based stat
+     * noise entirely.
+     */
+    public function test_crToNumeric_falls_back_to_generic_parsing_for_non_canonical_crs(): void
+    {
+        $crToNumeric = new \ReflectionMethod(NpcGenerator::class, 'crToNumeric');
+        $crToNumeric->setAccessible(true);
+
+        // "1/3" is not one of the 34 canonical D&D CRs (D&D only uses 1/8,
+        // 1/4, 1/2 as fractions) but is exactly the kind of free-text value
+        // a DM might type into the unvalidated form field.
+        $this->assertEqualsWithDelta(1 / 3, $crToNumeric->invoke($this->generator, '1/3'), 0.0001);
+
+        // A canonical value must still resolve via ChallengeRating, not the
+        // fallback parser.
+        $this->assertSame(2.0, $crToNumeric->invoke($this->generator, '2'));
+        $this->assertSame(0.5, $crToNumeric->invoke($this->generator, '1/2'));
+
+        // Genuinely unparseable input still degrades to 0.0 rather than
+        // throwing.
+        $this->assertSame(0.0, $crToNumeric->invoke($this->generator, 'not-a-cr'));
+    }
 }

@@ -124,4 +124,18 @@ class TemplateApiTest extends TestCase
 
         $this->assertEquals(50, $response->json('meta.pageSize'));
     }
+
+    /**
+     * The {template} route param is constrained to digits — see the
+     * matching regression test in NpcApiTest for why this matters (a
+     * non-numeric segment would otherwise throw an uncaught TypeError
+     * instead of yielding the documented 404).
+     */
+    public function test_templates_show_returns_404_not_500_for_non_numeric_id(): void
+    {
+        $response = $this->getJson('/api/v1/templates/abc');
+
+        $response->assertStatus(404)
+            ->assertJsonPath('error.code', 'NOT_FOUND');
+    }
 }

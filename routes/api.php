@@ -27,6 +27,13 @@ use Illuminate\Support\Facades\Route;
 | the query correctly (npcs scope excludes templates, templates scope excludes
 | npcs). Implicit binding alone would not apply those scopes.
 |
+| Each id param is constrained to digits via where(). Without this, a
+| non-numeric segment (e.g. GET /npcs/abc) reaches the controller and PHP's
+| weak-mode int coercion throws an uncaught TypeError on a non-numeric
+| string, yielding a 500 instead of the documented 404. Constraining the
+| route makes a non-numeric segment simply not match, falling through to
+| the same NotFoundHttpException path as any other unmatched route.
+|
 */
 
 Route::prefix('v1')
@@ -39,13 +46,13 @@ Route::prefix('v1')
 
         // NPCs — non-template statblocks only (is_template = false)
         Route::get('/npcs', [NpcController::class, 'index']);
-        Route::get('/npcs/{npc}', [NpcController::class, 'show']);
+        Route::get('/npcs/{npc}', [NpcController::class, 'show'])->where('npc', '[0-9]+');
 
         // Templates — template statblocks only (is_template = true)
         Route::get('/templates', [TemplateController::class, 'index']);
-        Route::get('/templates/{template}', [TemplateController::class, 'show']);
+        Route::get('/templates/{template}', [TemplateController::class, 'show'])->where('template', '[0-9]+');
 
         // Folders — tree and individual folder detail
         Route::get('/folders', [FolderController::class, 'index']);
-        Route::get('/folders/{folder}', [FolderController::class, 'show']);
+        Route::get('/folders/{folder}', [FolderController::class, 'show'])->where('folder', '[0-9]+');
     });

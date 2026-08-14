@@ -54,6 +54,13 @@ class SetApiCacheHeaders
     /**
      * Converts the response to a 304 with no body when the client's
      * If-None-Match matches the response's own ETag exactly.
+     *
+     * Mutates the ORIGINAL response via Symfony's setNotModified() rather
+     * than constructing a bare new Response — a fresh Response('', 304)
+     * would discard every header HandleCors already stamped on the
+     * original response (Access-Control-Allow-Origin, Vary, etc.), which
+     * would silently break revalidation for the exact cross-origin browser
+     * client this whole ETag contract exists to serve.
      */
     private function applyRevalidation(Request $request, Response $response): Response
     {
@@ -64,11 +71,6 @@ class SetApiCacheHeaders
             return $response;
         }
 
-        $notModified = response('', 304);
-        $notModified->headers->set('ETag', $etag);
-
-        // X-MFG-API-Version and Access-Control-Expose-Headers are stamped
-        // unconditionally by handle() right after this method returns.
-        return $notModified;
+        return $response->setNotModified();
     }
 }

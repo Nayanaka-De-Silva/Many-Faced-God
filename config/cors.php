@@ -20,7 +20,13 @@ return [
 
     'allowed_methods' => ['GET', 'OPTIONS'],
 
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
+    // array_map('trim', ...) so "https://a.example, https://b.example" (a
+    // naturally-written list with a space after the comma) doesn't leave a
+    // leading space baked into every origin after the first — Laravel's
+    // CORS origin check is an exact match, so an untrimmed entry would
+    // silently reject that origin with no error, just a missing
+    // Access-Control-Allow-Origin header on the client side.
+    'allowed_origins' => array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '*'))),
 
     'allowed_origins_patterns' => [],
 
