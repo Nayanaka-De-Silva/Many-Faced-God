@@ -19,7 +19,7 @@ class ApiDiscoveryTest extends TestCase
             ->assertJsonStructure([
                 'version',
                 'endpoints',
-                'openApiSpec',
+                'openapi',
             ])
             ->assertJsonPath('version', 1);
 
@@ -46,7 +46,7 @@ class ApiDiscoveryTest extends TestCase
         $response = $this->getJson('/api/v1/');
         $response->assertStatus(200);
 
-        $this->assertStringContainsString('/api/v1/openapi.yaml', $response->json('openApiSpec'));
+        $this->assertStringContainsString('/api/v1/openapi.yaml', $response->json('openapi'));
     }
 
     // ── GET /api/v1/health ──────────────────────────────────────────────────

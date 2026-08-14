@@ -17,26 +17,29 @@ class DiscoveryController extends Controller
      * Returns the full endpoint contract so clients (e.g. Arena) can probe the
      * available surface without hard-coding paths. Lists all planned endpoints
      * even if they are not yet implemented, giving the caller the full contract.
+     *
+     * NOTE: the top-level spec-link key is "openapi" (matching the executable
+     * Postman contract in docs/api/postman/), not "openApiSpec" — do not rename.
      */
     public function root(Request $request): JsonResponse
     {
         $base = '/api/v1';
 
         return response()->json([
-            'version'    => 1,
-            'endpoints'  => [
-                'root'        => "{$base}/",
-                'health'      => "{$base}/health",
-                'metadata'    => "{$base}/metadata",
-                'openapi'     => "{$base}/openapi.yaml",
-                'npcs'        => "{$base}/npcs",
-                'npc'         => "{$base}/npcs/{id}",
-                'templates'   => "{$base}/templates",
-                'template'    => "{$base}/templates/{id}",
-                'folders'     => "{$base}/folders",
-                'folder'      => "{$base}/folders/{id}",
+            'version'   => 1,
+            'endpoints' => [
+                'root'      => "{$base}/",
+                'health'    => "{$base}/health",
+                'metadata'  => "{$base}/metadata",
+                'openapi'   => "{$base}/openapi.yaml",
+                'npcs'      => "{$base}/npcs",
+                'npc'       => "{$base}/npcs/{id}",
+                'templates' => "{$base}/templates",
+                'template'  => "{$base}/templates/{id}",
+                'folders'   => "{$base}/folders",
+                'folder'    => "{$base}/folders/{id}",
             ],
-            'openApiSpec' => "{$base}/openapi.yaml",
+            'openapi' => "{$base}/openapi.yaml",
         ]);
     }
 
