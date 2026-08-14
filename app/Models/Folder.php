@@ -177,6 +177,38 @@ class Folder extends Model
     }
 
     /**
+     * Build a flat map of folder id → full path string for all folders.
+     * Performs a single Folder::all() query and resolves paths in-memory,
+     * avoiding N+1 when rendering paths for many NPCs in a list response.
+     *
+     * Example: [3 => "Campaigns / Waterdeep", 1 => "Campaigns"]
+     *
+     * @return array<int, string>
+     */
+    public static function buildPathMap(): array
+    {
+        $all = static::all()->keyBy('id');
+        $map = [];
+
+        foreach ($all as $folder) {
+            $path    = [];
+            $current = $folder;
+            $visited = [];
+
+            // Walk parents; stop on cycle (parent_id points to a visited folder)
+            while ($current !== null && !in_array($current->id, $visited, strict: true)) {
+                array_unshift($path, $current->name);
+                $visited[] = $current->id;
+                $current   = $current->parent_id !== null ? $all->get($current->parent_id) : null;
+            }
+
+            $map[$folder->id] = implode(' / ', $path);
+        }
+
+        return $map;
+    }
+
+    /**
      * Get the breadcrumb path to this folder.
      */
     public function getBreadcrumbAttribute(): array

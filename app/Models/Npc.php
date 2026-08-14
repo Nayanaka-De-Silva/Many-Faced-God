@@ -307,6 +307,28 @@ class Npc extends Model
     }
 
     /**
+     * Calculate the deterministic average hit points for a given dice string.
+     *
+     * Uses the mathematical average of each die (floor((diceSize + 1) / 2) per die),
+     * plus any flat modifier. Returns null for unparseable input, minimum 1 otherwise.
+     * Safe to call from API code — no rand() involved.
+     */
+    public static function averageHitPoints(string $hitDice): ?int
+    {
+        if (!preg_match('/^(\d+)d(\d+)([+-]\d+)?$/', $hitDice, $matches)) {
+            return null;
+        }
+
+        $numDice  = (int) $matches[1];
+        $diceSize = (int) $matches[2];
+        $modifier = isset($matches[3]) ? (int) $matches[3] : 0;
+
+        $average = (int) floor($numDice * ($diceSize + 1) / 2 + $modifier);
+
+        return max(1, $average);
+    }
+
+    /**
      * Roll hit points based on hit dice.
      */
     public static function rollHitPoints(string $hitDice): int
