@@ -33,6 +33,8 @@ Route::prefix('v1')
     ->group(function (): void {
         Route::get('/', [DiscoveryController::class, 'root']);
         Route::get('/health', [DiscoveryController::class, 'health']);
+        Route::get('/metadata', [DiscoveryController::class, 'metadata']);
+        Route::get('/openapi.yaml', [DiscoveryController::class, 'openapi']);
 
         // NPCs — non-template statblocks only (is_template = false)
         Route::get('/npcs', [NpcController::class, 'index']);
@@ -45,7 +47,4 @@ Route::prefix('v1')
         // Folders — tree and individual folder detail
         Route::get('/folders', [FolderController::class, 'index']);
         Route::get('/folders/{folder}', [FolderController::class, 'show']);
-
-        // metadata() and openapi() are reserved for a later batch — do not
-        // register placeholder routes here (they would 404 misleadingly).
     });

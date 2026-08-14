@@ -108,6 +108,135 @@ class ApiDiscoveryTest extends TestCase
         $this->assertStringContainsString('application/json', $response->headers->get('Content-Type'));
     }
 
+    // ── GET /api/v1/metadata ────────────────────────────────────────────────
+
+    public function test_metadata_publishes_every_vocabulary(): void
+    {
+        $response = $this->getJson('/api/v1/metadata');
+
+        $response->assertStatus(200)->assertJsonStructure([
+            'alignments', 'skills', 'damageTypes', 'conditions',
+            'senseCategories', 'actionTypes', 'castingTypes', 'challengeRatings',
+        ]);
+    }
+
+    /**
+     * The DMG CR table (manticore-arena-v2.2.md:157-174, the canonical source
+     * cited by issue #65) has 34 distinct CRs: CR 0, three fractional CRs
+     * (1/8, 1/4, 1/2), and integers 1 through 30. The pre-authored Postman
+     * collection asserts 31 ("CR 0 through 30"), undercounting the three
+     * fractions — its own CR-sort-order test elsewhere lists all 34 values
+     * in its ORDER array, so this is a miscount in that one assertion, not
+     * a second valid contract. Documented in the PR per the issue's own
+     * instruction to amend the collection only when the contract itself is
+     * deliberately amended.
+     */
+    public function test_metadata_challenge_ratings_cover_all_34_crs(): void
+    {
+        $response = $this->getJson('/api/v1/metadata');
+
+        $crs = $response->json('challengeRatings');
+        $this->assertCount(34, $crs);
+    }
+
+    public function test_metadata_challenge_rating_xp_matches_dmg_table(): void
+    {
+        $response = $this->getJson('/api/v1/metadata');
+
+        $crs = $response->json('challengeRatings');
+        $this->assertSame(25, $crs['1/8']['xp']);
+        $this->assertSame(50, $crs['1/4']['xp']);
+        $this->assertSame(100, $crs['1/2']['xp']);
+        $this->assertSame(200, $crs['1']['xp']);
+        $this->assertSame(700, $crs['3']['xp']);
+        $this->assertSame(25000, $crs['20']['xp']);
+        $this->assertSame(155000, $crs['30']['xp']);
+        $this->assertSame(0, $crs['0']['xp']);
+        $this->assertSame(10, $crs['0']['xpIfDangerous']);
+    }
+
+    public function test_metadata_action_types_keep_snake_case_enum_values(): void
+    {
+        $response = $this->getJson('/api/v1/metadata');
+
+        $json = $response->getContent();
+        $this->assertStringContainsString('attack_action', $json);
+        $this->assertStringContainsString('legendary_action', $json);
+    }
+
+    public function test_metadata_response_has_api_version_header(): void
+    {
+        $response = $this->getJson('/api/v1/metadata');
+
+        $response->assertHeader('X-MFG-API-Version', '1');
+    }
+
+    // ── GET /api/v1/openapi.yaml ────────────────────────────────────────────
+
+    public function test_openapi_yaml_is_served_as_yaml(): void
+    {
+        $response = $this->get('/api/v1/openapi.yaml', ['Accept' => 'text/yaml']);
+
+        $response->assertStatus(200);
+        $this->assertMatchesRegularExpression('/ya?ml/i', $response->headers->get('Content-Type'));
+    }
+
+    public function test_openapi_yaml_declares_version_3_1(): void
+    {
+        $response = $this->get('/api/v1/openapi.yaml');
+
+        $this->assertMatchesRegularExpression('/openapi:\s*["\']?3\.1/', $response->getContent());
+    }
+
+    public function test_openapi_yaml_documents_core_paths(): void
+    {
+        $response = $this->get('/api/v1/openapi.yaml');
+        $body = $response->getContent();
+
+        foreach (['/npcs', '/templates', '/folders', '/health', '/metadata'] as $path) {
+            $this->assertStringContainsString($path, $body, "spec omits {$path}");
+        }
+    }
+
+    /**
+     * Keeps the hand-written spec honest: every registered api/v1 GET route
+     * must have a matching `paths` entry in openapi/v1.yaml, and vice versa.
+     */
+    public function test_openapi_yaml_paths_match_registered_routes_bidirectionally(): void
+    {
+        $spec = \Symfony\Component\Yaml\Yaml::parseFile(base_path('openapi/v1.yaml'));
+        $specPaths = array_keys($spec['paths'] ?? []);
+
+        $registeredPaths = collect(\Illuminate\Support\Facades\Route::getRoutes())
+            ->filter(fn ($route) => str_starts_with($route->uri(), 'api/v1') && in_array('GET', $route->methods(), true))
+            ->map(function ($route) {
+                $uri = '/' . preg_replace('#^api/v1/?#', '', $route->uri());
+                $uri = preg_replace('/\{[^}]+\}/', '{id}', $uri);
+                return rtrim($uri, '/') === '' ? '/' : rtrim($uri, '/');
+            })
+            ->unique()
+            ->values()
+            ->all();
+
+        $normalizedSpecPaths = collect($specPaths)
+            ->map(function (string $p) {
+                $p = preg_replace('/\{[^}]+\}/', '{id}', $p);
+                return rtrim($p, '/') === '' ? '/' : rtrim($p, '/');
+            })
+            ->unique()
+            ->values()
+            ->all();
+
+        sort($registeredPaths);
+        sort($normalizedSpecPaths);
+
+        $this->assertEquals(
+            $registeredPaths,
+            $normalizedSpecPaths,
+            'openapi/v1.yaml paths must exactly match registered api/v1 GET routes'
+        );
+    }
+
     // ── spell-library routes must remain unshadowed ──────────────────────────
 
     public function test_spell_library_proxy_routes_are_not_shadowed_by_api_v1(): void

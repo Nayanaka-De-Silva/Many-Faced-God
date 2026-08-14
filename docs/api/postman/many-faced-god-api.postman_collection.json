@@ -1,0 +1,1404 @@
+{
+	"info": {
+		"name": "Many Faced God API v1",
+		"description": "Read-only public API for MFG NPC data.\n\nContract source of truth: `openapi/v1.yaml` in the repo, served live at `{{baseUrl}}/api/v1/openapi.yaml`.\n\n## How to run\n\n1. Import the `many-faced-god.postman_environment.json` environment and select it.\n2. Set `baseUrl` if your instance is not on `http://localhost:8765`.\n3. Run the whole collection with the Collection Runner (or `newman run`).\n\nRequests run **in order** and are stateful: the `Discovery` folder probes the service, then `NPCs > List NPCs` captures a real `npcId` and `folderId` into collection variables that every later request depends on. Running a single request in the middle without seeding first may fail on an empty variable.\n\n## What the assertions cover\n\nBeyond simple 200s, these tests encode the design decisions that are easy to regress:\n\n- `challengeRating` is always an **object**, and a missing CR yields `{value:null,xp:null}` \u2014 **never `0`**.\n- Payloads are **deterministic** \u2014 two consecutive fetches of the same NPC are byte-identical (guards against `rollHitPoints()` leaking into the API).\n- `ETag` is present and `If-None-Match` returns **304**.\n- Templates never appear in `/npcs`.\n- `pageSize` is **clamped**, not rejected; bad `sort` **is** rejected.\n- CR sorts numerically (`1/8 < 1/2 < 2 < 10`), not lexically.\n- All JSON keys are camelCase.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "npcId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "templateId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "folderId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "npcEtag",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "npcBody",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"event": [
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Applies to every request in the collection.",
+					"pm.test('Responds within 2s', function () {",
+					"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+					"});",
+					"",
+					"// Every JSON response must advertise the API version.",
+					"if (pm.response.code !== 304) {",
+					"    pm.test('X-MFG-API-Version header is present', function () {",
+					"        pm.expect(pm.response.headers.get('X-MFG-API-Version')).to.eql('1');",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "Discovery",
+			"item": [
+				{
+					"name": "Discovery root",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1"
+							]
+						},
+						"description": "Self-describing entry point. Arena uses this as its 'test connection' probe, mirroring the role SettingsController::testConnection plays in the other direction."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const body = pm.response.json();",
+									"",
+									"pm.test('Advertises version 1', function () {",
+									"    pm.expect(String(body.version)).to.eql('1');",
+									"});",
+									"",
+									"pm.test('Links to the OpenAPI contract', function () {",
+									"    pm.expect(body.openapi).to.be.a('string').and.to.include('openapi.yaml');",
+									"});",
+									"",
+									"pm.test('Lists its endpoints', function () {",
+									"    pm.expect(body.endpoints).to.be.an('object');",
+									"    const keys = Object.keys(body.endpoints).join(' ');",
+									"    ['npcs', 'templates', 'folders'].forEach(function (k) {",
+									"        pm.expect(keys).to.include(k);",
+									"    });",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Health",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"health"
+							]
+						},
+						"description": "Mirrors the Library of Netheril health contract exactly: {\"status\":\"ok\"}."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"pm.test(\"status is 'ok'\", function () {",
+									"    pm.expect(pm.response.json().status).to.eql('ok');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Metadata",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/metadata",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"metadata"
+							]
+						},
+						"description": "Enum vocabularies, so consumers never hardcode MFG's internal value sets."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const body = pm.response.json();",
+									"",
+									"pm.test('Publishes every vocabulary', function () {",
+									"    ['alignments', 'skills', 'damageTypes', 'conditions',",
+									"     'senseCategories', 'actionTypes', 'castingTypes', 'challengeRatings']",
+									"        .forEach(function (key) {",
+									"            pm.expect(body, 'missing vocabulary: ' + key).to.have.property(key);",
+									"        });",
+									"});",
+									"",
+									"pm.test('Challenge ratings cover all 34 DMG CRs (0, 1/8, 1/4, 1/2, 1-30)', function () {",
+									"    pm.expect(Object.keys(body.challengeRatings)).to.have.lengthOf(34);",
+									"});",
+									"",
+									"pm.test('CR to XP values match the DMG', function () {",
+									"    const cr = body.challengeRatings;",
+									"    const xp = (k) => (typeof cr[k] === 'object' ? cr[k].xp : cr[k]);",
+									"    pm.expect(xp('1/8')).to.eql(25);",
+									"    pm.expect(xp('1/4')).to.eql(50);",
+									"    pm.expect(xp('1/2')).to.eql(100);",
+									"    pm.expect(xp('1')).to.eql(200);",
+									"    pm.expect(xp('3')).to.eql(700);",
+									"    pm.expect(xp('20')).to.eql(25000);",
+									"    pm.expect(xp('30')).to.eql(155000);",
+									"});",
+									"",
+									"pm.test('Action types keep their snake_case enum values', function () {",
+									"    const types = JSON.stringify(body.actionTypes);",
+									"    pm.expect(types).to.include('attack_action');",
+									"    pm.expect(types).to.include('legendary_action');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "OpenAPI contract",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "text/yaml"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/openapi.yaml",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"openapi.yaml"
+							]
+						},
+						"description": "The machine-readable contract. This is what makes the API self-advertising to other applications."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"",
+									"pm.test('Served as YAML', function () {",
+									"    pm.expect(pm.response.headers.get('Content-Type')).to.match(/ya?ml/i);",
+									"});",
+									"",
+									"const text = pm.response.text();",
+									"",
+									"pm.test('Declares OpenAPI 3.1', function () {",
+									"    pm.expect(text).to.match(/openapi:\\s*[\"']?3\\.1/);",
+									"});",
+									"",
+									"pm.test('Documents the core paths', function () {",
+									"    ['/npcs', '/templates', '/folders', '/health', '/metadata']",
+									"        .forEach(function (p) {",
+									"            pm.expect(text, 'spec omits ' + p).to.include(p);",
+									"        });",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "NPCs",
+			"item": [
+				{
+					"name": "List NPCs (seeds npcId / folderId)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							]
+						},
+						"description": "Default listing. Captures a real npcId and folderId into collection variables for every later request, so the collection runs end-to-end without manual setup."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const body = pm.response.json();",
+									"",
+									"pm.test('Uses the data/meta envelope', function () {",
+									"    pm.expect(body).to.have.property('data').that.is.an('array');",
+									"    pm.expect(body).to.have.property('meta').that.is.an('object');",
+									"});",
+									"",
+									"pm.test('Meta is camelCase and complete', function () {",
+									"    ['page', 'pageSize', 'totalItems', 'totalPages'].forEach(function (k) {",
+									"        pm.expect(body.meta, 'missing meta.' + k).to.have.property(k);",
+									"    });",
+									"    // Laravel's default paginator envelope would leak these.",
+									"    ['per_page', 'current_page', 'total', 'links'].forEach(function (k) {",
+									"        pm.expect(body.meta, 'snake_case leak: ' + k).to.not.have.property(k);",
+									"    });",
+									"});",
+									"",
+									"pm.test('Defaults to pageSize 25', function () {",
+									"    pm.expect(body.meta.pageSize).to.eql(25);",
+									"});",
+									"",
+									"if (body.data.length === 0) {",
+									"    console.warn('No NPCs returned \u2014 seed the database or later requests will be skipped.');",
+									"} else {",
+									"    const npc = body.data[0];",
+									"    pm.collectionVariables.set('npcId', npc.id);",
+									"    if (npc.folder && npc.folder.id) {",
+									"        pm.collectionVariables.set('folderId', npc.folder.id);",
+									"    }",
+									"",
+									"    pm.test('List items are full statblocks, not summaries', function () {",
+									"        ['abilities', 'traits', 'actions', 'spellcasting',",
+									"         'passivePerception', 'challengeRating']",
+									"            .forEach(function (k) {",
+									"                pm.expect(npc, 'statblock missing ' + k).to.have.property(k);",
+									"            });",
+									"    });",
+									"",
+									"    pm.test('No template leaks into /npcs', function () {",
+									"        body.data.forEach(function (n) {",
+									"            pm.expect(n.isTemplate, 'template ' + n.id + ' leaked').to.eql(false);",
+									"        });",
+									"    });",
+									"",
+									"    pm.test('challengeRating is always an object, never a bare null', function () {",
+									"        body.data.forEach(function (n) {",
+									"            pm.expect(n.challengeRating).to.be.an('object').and.to.not.be.null;",
+									"            pm.expect(n.challengeRating).to.have.property('value');",
+									"            pm.expect(n.challengeRating).to.have.property('xp');",
+									"            pm.expect(n.challengeRating).to.have.property('xpIfDangerous');",
+									"        });",
+									"    });",
+									"",
+									"    pm.test('A null CR never resolves to 0 XP', function () {",
+									"        body.data.forEach(function (n) {",
+									"            if (n.challengeRating.value === null) {",
+									"                pm.expect(n.challengeRating.xp,",
+									"                    'NPC ' + n.id + ' coerced a null CR to a number').to.be.null;",
+									"            }",
+									"        });",
+									"    });",
+									"",
+									"    pm.test('Keys are camelCase, not snake_case', function () {",
+									"        Object.keys(npc).forEach(function (k) {",
+									"            pm.expect(k, 'snake_case key: ' + k).to.not.match(/_/);",
+									"        });",
+									"    });",
+									"",
+									"    pm.test('sourceRef is namespaced for Arena', function () {",
+									"        pm.expect(npc.sourceRef).to.eql('mfg:npc:' + npc.id);",
+									"    });",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - pageSize is clamped, not rejected",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?pageSize=500",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "pageSize",
+									"value": "500"
+								}
+							]
+						},
+						"description": "Full statblocks are a ~10x payload multiplier, so pageSize caps at 50. An over-large request is clamped and the real value echoed back in meta, rather than erroring."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK (clamped, not rejected)', () => pm.response.to.have.status(200));",
+									"const meta = pm.response.json().meta;",
+									"",
+									"pm.test('pageSize clamped to 50', function () {",
+									"    pm.expect(meta.pageSize).to.eql(50);",
+									"});",
+									"",
+									"pm.test('meta reports the value actually applied', function () {",
+									"    pm.expect(pm.response.json().data.length).to.be.at.most(meta.pageSize);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - unknown params are ignored",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?evilParam=injected&pageSize=5",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "evilParam",
+									"value": "injected"
+								},
+								{
+									"key": "pageSize",
+									"value": "5"
+								}
+							]
+						},
+						"description": "Matches the allowlist behaviour already proven by SpellLibraryProxyController: unrecognised params are dropped silently, recognised ones still apply."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Known params still applied', function () {",
+									"    pm.expect(pm.response.json().meta.pageSize).to.eql(5);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - invalid sort is rejected",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?sort=hit_points; DROP TABLE npcs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "hit_points; DROP TABLE npcs"
+								}
+							]
+						},
+						"description": "sort is an allowlist, not a passthrough. Anything off the list is a 400 rather than reaching the query builder."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+									"",
+									"pm.test('Returns the standard error envelope', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body).to.have.property('error');",
+									"    pm.expect(body.error).to.have.property('code');",
+									"    pm.expect(body.error).to.have.property('message');",
+									"    pm.expect(body.error.code).to.eql('INVALID_SORT');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - challenge rating sorts numerically",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?sort=challengeRating&direction=asc&pageSize=50",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "sort",
+									"value": "challengeRating"
+								},
+								{
+									"key": "direction",
+									"value": "asc"
+								},
+								{
+									"key": "pageSize",
+									"value": "50"
+								}
+							]
+						},
+						"description": "challenge_rating is a string column, so a naive ORDER BY yields 0, 1, 1/2, 1/8, 10, 11, 1/4, 2 \u2014 the '/' character sorts below digits. This asserts the CASE-expression ranking actually took effect."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json().data;",
+									"",
+									"const ORDER = ['0','1/8','1/4','1/2','1','2','3','4','5','6','7','8','9','10',",
+									"               '11','12','13','14','15','16','17','18','19','20','21','22',",
+									"               '23','24','25','26','27','28','29','30'];",
+									"",
+									"pm.test('Ranks ascend and nulls sort last', function () {",
+									"    let lastRank = -1;",
+									"    let seenNull = false;",
+									"    data.forEach(function (n) {",
+									"        const value = n.challengeRating.value;",
+									"        if (value === null) { seenNull = true; return; }",
+									"        pm.expect(seenNull, 'a rated NPC appeared after a null-CR NPC').to.be.false;",
+									"        const rank = ORDER.indexOf(String(value));",
+									"        pm.expect(rank, 'unrecognised CR: ' + value).to.be.at.least(0);",
+									"        pm.expect(rank, 'CR ' + value + ' sorted out of order').to.be.at.least(lastRank);",
+									"        lastRank = rank;",
+									"    });",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - search",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?search=a",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "a"
+								}
+							]
+						},
+						"description": "Reuses the existing Npc::scopeSearch rather than reimplementing matching."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"pm.test('Envelope intact under filtering', function () {",
+									"    const body = pm.response.json();",
+									"    pm.expect(body.data).to.be.an('array');",
+									"    pm.expect(body.meta.totalItems).to.be.a('number');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - bulk fetch by ids",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?ids={{npcId}},999999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "ids",
+									"value": "{{npcId}},999999"
+								}
+							]
+						},
+						"description": "Lets Arena refresh every cached statblock in an encounter with one request instead of one call per combatant. Missing ids are omitted silently \u2014 a partial result, not a 404."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json().data;",
+									"",
+									"pm.test('Returns the requested NPC', function () {",
+									"    const wanted = String(pm.collectionVariables.get('npcId'));",
+									"    pm.expect(data.map(n => String(n.id))).to.include(wanted);",
+									"});",
+									"",
+									"pm.test('Silently omits the missing id rather than 404ing', function () {",
+									"    pm.expect(data.map(n => String(n.id))).to.not.include('999999');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "List NPCs - bulk id cap enforced",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?ids={{tooManyIds}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "ids",
+									"value": "{{tooManyIds}}"
+								}
+							]
+						},
+						"description": "101 ids must be rejected. Keeps the URL bounded and stops a single request pulling the whole table as full statblocks."
+					},
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Build a 101-element id list \u2014 one past the documented cap of 100.",
+									"const ids = Array.from({ length: 101 }, (_, i) => i + 1).join(',');",
+									"pm.collectionVariables.set('tooManyIds', ids);"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+									"pm.test('Error envelope explains the cap', function () {",
+									"    pm.expect(pm.response.json().error).to.have.property('code');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get NPC (captures ETag + body)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs/{{npcId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs",
+								"{{npcId}}"
+							]
+						},
+						"description": "The full statblock. Stores the ETag and the raw body so the next two requests can verify cache revalidation and payload determinism."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const body = pm.response.json();",
+									"const npc = body.data;",
+									"",
+									"pm.collectionVariables.set('npcEtag', pm.response.headers.get('ETag') || '');",
+									"pm.collectionVariables.set('npcBody', pm.response.text());",
+									"",
+									"pm.test('Single resource is wrapped in data', function () {",
+									"    pm.expect(body).to.have.property('data').that.is.an('object');",
+									"});",
+									"",
+									"pm.test('Serves an ETag for offline revalidation', function () {",
+									"    pm.expect(pm.response.headers.get('ETag')).to.be.a('string').and.not.empty;",
+									"});",
+									"",
+									"pm.test('ETag is readable cross-origin', function () {",
+									"    const exposed = pm.response.headers.get('Access-Control-Expose-Headers') || '';",
+									"    pm.expect(exposed.toLowerCase(),",
+									"        'ETag not exposed \u2014 browser JS cannot read it').to.include('etag');",
+									"});",
+									"",
+									"pm.test('Ability scores carry score, modifier and display', function () {",
+									"    ['strength','dexterity','constitution','intelligence','wisdom','charisma']",
+									"        .forEach(function (ability) {",
+									"            const a = npc.abilities[ability];",
+									"            pm.expect(a, 'missing ability: ' + ability).to.be.an('object');",
+									"            pm.expect(a).to.have.property('score');",
+									"            pm.expect(a).to.have.property('modifier');",
+									"            pm.expect(a).to.have.property('display');",
+									"        });",
+									"});",
+									"",
+									"pm.test('Modifiers are computed correctly', function () {",
+									"    Object.values(npc.abilities).forEach(function (a) {",
+									"        pm.expect(a.modifier).to.eql(Math.floor((a.score - 10) / 2));",
+									"    });",
+									"});",
+									"",
+									"pm.test('Senses expose both raw and formatted', function () {",
+									"    pm.expect(npc.senses).to.have.property('raw').that.is.an('array');",
+									"    pm.expect(npc.senses).to.have.property('formatted').that.is.an('array');",
+									"});",
+									"",
+									"pm.test('spellcasting is an array, never null', function () {",
+									"    pm.expect(npc.spellcasting).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Arena gets usable HP', function () {",
+									"    if (npc.hitPoints === null) {",
+									"        pm.expect(npc,",
+									"            'null HP with no suggestion leaves Arena nothing to import')",
+									"            .to.have.property('hitPointsSuggested');",
+									"    } else {",
+									"        pm.expect(npc.hitPoints).to.be.a('number');",
+									"    }",
+									"});",
+									"",
+									"pm.test('Timestamps are ISO-8601', function () {",
+									"    pm.expect(npc.updatedAt).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}/);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get NPC - payload is deterministic",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs/{{npcId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs",
+								"{{npcId}}"
+							]
+						},
+						"description": "Guards the single easiest catastrophic mistake: wiring the rand()-based Npc::rollHitPoints() into the API. A non-deterministic payload would break every ETag and corrupt Arena's offline cache."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"",
+									"pm.test('Byte-identical to the previous fetch', function () {",
+									"    const previous = pm.collectionVariables.get('npcBody');",
+									"    pm.expect(previous, 'no baseline captured').to.not.be.empty;",
+									"    pm.expect(pm.response.text(),",
+									"        'payload changed between identical requests \u2014 is rollHitPoints() being called?')",
+									"        .to.eql(previous);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get NPC - ETag revalidation returns 304",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "If-None-Match",
+								"value": "{{npcEtag}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs/{{npcId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs",
+								"{{npcId}}"
+							]
+						},
+						"description": "This is what makes Arena's offline cache cheap to refresh \u2014 an unchanged statblock costs a 304 with no body instead of a full re-download."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('304 Not Modified', () => pm.response.to.have.status(304));",
+									"",
+									"pm.test('304 carries no body', function () {",
+									"    pm.expect(pm.response.text() || '').to.be.empty;",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get NPC - not found",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs/99999999",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs",
+								"99999999"
+							]
+						},
+						"description": "404s use the same error envelope as the rest of the ecosystem."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+									"",
+									"pm.test('JSON error envelope, not an HTML error page', function () {",
+									"    pm.expect(pm.response.headers.get('Content-Type')).to.include('json');",
+									"    pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND');",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Templates",
+			"item": [
+				{
+					"name": "List templates (seeds templateId)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/templates",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"templates"
+							]
+						},
+						"description": "Templates are npcs rows with is_template = true. Exposing them separately lets Arena import a generic 'Goblin' and spawn N copies."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json().data;",
+									"",
+									"pm.test('Every entry is a template', function () {",
+									"    data.forEach(function (t) {",
+									"        pm.expect(t.isTemplate, 'non-template ' + t.id + ' leaked').to.eql(true);",
+									"    });",
+									"});",
+									"",
+									"if (data.length > 0) {",
+									"    pm.collectionVariables.set('templateId', data[0].id);",
+									"} else {",
+									"    console.warn('No templates found \u2014 the cross-endpoint isolation test will be skipped.');",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get template",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/templates/{{templateId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"templates",
+								"{{templateId}}"
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.collectionVariables.get('templateId')) {",
+									"    pm.test.skip('No template seeded');",
+									"} else {",
+									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"    pm.test('Is a template statblock', function () {",
+									"        pm.expect(pm.response.json().data.isTemplate).to.eql(true);",
+									"    });",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Template id is not reachable via /npcs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs/{{templateId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs",
+								"{{templateId}}"
+							]
+						},
+						"description": "The two collections must be strictly isolated in both directions. Templates often have null HP and null CR \u2014 if one reached Arena as an NPC it would silently distort the encounter difficulty budget."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.collectionVariables.get('templateId')) {",
+									"    pm.test.skip('No template seeded');",
+									"} else {",
+									"    pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+									"    pm.test('Uses the error envelope', function () {",
+									"        pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Folders",
+			"item": [
+				{
+					"name": "Folder tree",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/folders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"folders"
+							]
+						},
+						"description": "Lets Arena's import dialog present MFG's hierarchy instead of one flat list."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"const data = pm.response.json().data;",
+									"",
+									"pm.test('Returns a collection', function () {",
+									"    pm.expect(data).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Folders carry counts and nest safely', function () {",
+									"    const walk = function (nodes, depth) {",
+									"        pm.expect(depth, 'folder tree deeper than 20 \u2014 cycle guard missing?')",
+									"            .to.be.below(20);",
+									"        nodes.forEach(function (f) {",
+									"            pm.expect(f).to.have.property('id');",
+									"            pm.expect(f).to.have.property('name');",
+									"            if (Array.isArray(f.children)) { walk(f.children, depth + 1); }",
+									"        });",
+									"    };",
+									"    walk(data, 0);",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Get folder",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/folders/{{folderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"folders",
+								"{{folderId}}"
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.collectionVariables.get('folderId')) {",
+									"    pm.test.skip('No folder seeded \u2014 no listed NPC belonged to one');",
+									"} else {",
+									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"    pm.test('Includes a breadcrumb', function () {",
+									"        pm.expect(pm.response.json().data).to.have.property('breadcrumb');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Filter NPCs by folder",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs?folderId={{folderId}}&includeDescendants=true",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							],
+							"query": [
+								{
+									"key": "folderId",
+									"value": "{{folderId}}"
+								},
+								{
+									"key": "includeDescendants",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (!pm.collectionVariables.get('folderId')) {",
+									"    pm.test.skip('No folder seeded');",
+									"} else {",
+									"    pm.test('200 OK', () => pm.response.to.have.status(200));",
+									"    pm.test('Envelope intact under folder filtering', function () {",
+									"        pm.expect(pm.response.json().data).to.be.an('array');",
+									"    });",
+									"}"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Negative cases",
+			"item": [
+				{
+					"name": "Unknown API path returns JSON, not HTML",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/does-not-exist",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"does-not-exist"
+							]
+						},
+						"description": "withExceptions() must render JSON for anything under api/*, otherwise a stray path returns a Blade error page to a machine consumer."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+									"pm.test('Content-Type is JSON', function () {",
+									"    pm.expect(pm.response.headers.get('Content-Type')).to.include('json');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Write methods are rejected",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"name\":\"Should Never Be Created\"}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							]
+						},
+						"description": "The API is read-only by contract. A write attempt must be refused with a JSON envelope \u2014 note Route::fallback() is GET-only, so this path has to be handled in withExceptions()."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Rejected (404 or 405)', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([404, 405]);",
+									"});",
+									"",
+									"pm.test('Rejection is JSON, not an HTML error page', function () {",
+									"    pm.expect(pm.response.headers.get('Content-Type')).to.include('json');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "CORS preflight",
+					"request": {
+						"method": "OPTIONS",
+						"header": [
+							{
+								"key": "Origin",
+								"value": "{{arenaOrigin}}"
+							},
+							{
+								"key": "Access-Control-Request-Method",
+								"value": "GET"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/npcs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"npcs"
+							]
+						},
+						"description": "Arena runs on a separate origin. Without ETag in Access-Control-Expose-Headers, browser JS cannot read it and the whole revalidation design silently degrades."
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Preflight succeeds', function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+									"});",
+									"",
+									"pm.test('Allows the requesting origin', function () {",
+									"    pm.expect(pm.response.headers.get('Access-Control-Allow-Origin')).to.not.be.null;",
+									"});",
+									"",
+									"pm.test('Exposes ETag to browser JS', function () {",
+									"    const exposed = pm.response.headers.get('Access-Control-Expose-Headers') || '';",
+									"    pm.expect(exposed.toLowerCase()).to.include('etag');",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

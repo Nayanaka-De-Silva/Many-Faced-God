@@ -1,0 +1,630 @@
+openapi: 3.1.0
+info:
+  title: Many Faced God API
+  version: "1"
+  description: >-
+    Read-only public API for external NPC consumers (e.g. Manticore Arena).
+    No authentication — Docker/Tailscale network isolation is the trust
+    boundary. All responses are cacheable documents; GET /npcs/{id} and
+    GET /templates/{id} support ETag revalidation via If-None-Match.
+
+
+    Versioning policy:
+    1. /api/v1 is additive-only — new fields may appear; existing fields
+    never change type or disappear.
+    2. Breaking changes ship as /api/v2, with /api/v1 kept alive for at
+    least one Arena release.
+    3. Clients must ignore unknown fields.
+servers:
+  - url: /api/v1
+    description: Many Faced God, API v1
+paths:
+  /:
+    get:
+      summary: Discovery root
+      description: Lists the full endpoint contract and links to this spec. Doubles as a connectivity probe for clients such as Arena.
+      operationId: discoveryRoot
+      responses:
+        "200":
+          description: Discovery document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: integer
+                    example: 1
+                  endpoints:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  openapi:
+                    type: string
+                    description: Absolute path to this OpenAPI document.
+  /health:
+    get:
+      summary: Liveness probe
+      description: Mirrors the Library of Netheril SpellLibraryClient /health contract.
+      operationId: health
+      responses:
+        "200":
+          description: Service is reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metadata:
+    get:
+      summary: Static vocabularies
+      description: >-
+        Enumerations used across NPC statblocks. Cached 24h server-side.
+        actionTypes and castingTypes values are the raw DB enum vocabulary
+        (snake_case for actionTypes) — they are not recased for JSON.
+      operationId: metadata
+      responses:
+        "200":
+          description: Vocabulary document
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alignments:
+                    type: array
+                    items:
+                      type: string
+                  skills:
+                    type: array
+                    items:
+                      type: string
+                  damageTypes:
+                    type: array
+                    items:
+                      type: string
+                  conditions:
+                    type: array
+                    items:
+                      type: string
+                  senseCategories:
+                    type: object
+                  actionTypes:
+                    type: object
+                    description: Keyed by the raw snake_case DB enum value (e.g. attack_action, legendary_action).
+                  castingTypes:
+                    type: object
+                    description: "Innate | Spellcasting | PactMagic"
+                  challengeRatings:
+                    type: object
+                    description: All 31 D&D 5e CRs (0 through 30), each with its DMG XP value.
+                    additionalProperties:
+                      type: object
+                      properties:
+                        xp:
+                          type: integer
+                        xpIfDangerous:
+                          type: [integer, "null"]
+                          description: >-
+                            Only non-null for CR 0. The DMG splits CR 0 into
+                            0 XP (no threat) or 10 XP (has a dangerous
+                            trait) and MFG stores nothing that distinguishes
+                            the two, so both values are emitted and the
+                            consuming client (Arena) decides.
+  /openapi.yaml:
+    get:
+      summary: This document
+      operationId: openapiSpec
+      responses:
+        "200":
+          description: The OpenAPI 3.1 contract, served as text/yaml
+          content:
+            text/yaml:
+              schema:
+                type: string
+  /npcs:
+    get:
+      summary: List NPCs
+      description: Full statblocks (no slim/detail split). Excludes templates.
+      operationId: listNpcs
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, challengeRating, armorClass, hitPoints, createdAt, updatedAt]
+            default: name
+          description: Unrecognised value returns 400 INVALID_SORT.
+        - $ref: "#/components/parameters/direction"
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: challengeRating
+          in: query
+          schema:
+            type: string
+          example: "1/2"
+        - name: folderId
+          in: query
+          schema:
+            type: integer
+        - name: includeDescendants
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Only applies when folderId is present.
+        - name: ids
+          in: query
+          schema:
+            type: string
+          description: >-
+            Comma-separated NPC ids, max 100 (over the cap returns 400
+            INVALID_QUERY). When present, search/challengeRating/folderId
+            are ignored. Missing/nonexistent ids are silently omitted from
+            the result rather than causing a 404.
+      responses:
+        "200":
+          description: Paginated NPC statblocks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NpcListEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /npcs/{id}:
+    get:
+      summary: Get one NPC
+      description: 404s for a template id — templates are not reachable via this endpoint.
+      operationId: getNpc
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/ifNoneMatch"
+      responses:
+        "200":
+          description: One NPC statblock
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NpcEnvelope"
+        "304":
+          description: Not modified — client's cached copy is current
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /templates:
+    get:
+      summary: List templates
+      description: Same shape and query params as /npcs, scoped to is_template = true.
+      operationId: listTemplates
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [name, challengeRating, armorClass, hitPoints, createdAt, updatedAt]
+            default: name
+        - $ref: "#/components/parameters/direction"
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: ids
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated template statblocks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NpcListEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /templates/{id}:
+    get:
+      summary: Get one template
+      description: 404s for a non-template NPC id.
+      operationId: getTemplate
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: One template statblock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NpcEnvelope"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /folders:
+    get:
+      summary: Folder tree
+      description: Full folder tree with NPC/template counts. Recursion is depth-capped to guard against a corrupted parent_id cycle.
+      operationId: listFolders
+      responses:
+        "200":
+          description: Folder tree
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FolderNode"
+  /folders/{id}:
+    get:
+      summary: Get one folder
+      description: Includes breadcrumb (root-to-self) and immediate children only — not the full nested tree.
+      operationId: getFolder
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: One folder
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/FolderDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    pageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 25
+        maximum: 50
+      description: Silently clamped to 50, never rejected. meta.pageSize reports the value actually applied.
+    direction:
+      name: direction
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+    ifNoneMatch:
+      name: If-None-Match
+      in: header
+      schema:
+        type: string
+      description: Send back a previously-received ETag to get a 304 with no body if the resource is unchanged.
+  responses:
+    NotFound:
+      description: NPC, template, or folder not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    BadRequest:
+      description: Invalid sort field or invalid query (e.g. ids cap exceeded)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum: [NOT_FOUND, INVALID_SORT, INVALID_QUERY, METHOD_NOT_ALLOWED]
+            message:
+              type: string
+    NpcListEnvelope:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Npc"
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            totalItems:
+              type: integer
+            totalPages:
+              type: integer
+    NpcEnvelope:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/Npc"
+    Npc:
+      type: object
+      description: Full statblock — identical shape in list and show responses.
+      properties:
+        id:
+          type: integer
+        sourceRef:
+          type: string
+          description: "Stable namespaced identifier, e.g. mfg:npc:42. Suitable for Combatant.sourceRef in Arena."
+          example: "mfg:npc:42"
+        name:
+          type: string
+        type:
+          type: string
+        alignment:
+          type: [string, "null"]
+        isTemplate:
+          type: boolean
+        folder:
+          type: [object, "null"]
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            path:
+              type: string
+        challengeRating:
+          type: object
+          description: >-
+            Always an object, never a bare null. value is the raw stored CR
+            string or null. xp propagates null when value is null — a null
+            CR must never resolve to a numeric 0, since Arena's DMG
+            difficulty math would then silently treat an un-rated NPC as
+            worth zero threat. xpIfDangerous is only non-null for CR 0 (see
+            /metadata description).
+          properties:
+            value:
+              type: [string, "null"]
+            xp:
+              type: [integer, "null"]
+            xpIfDangerous:
+              type: [integer, "null"]
+        proficiencyBonus:
+          type: [integer, "null"]
+          description: The stored column, verbatim — never recomputed from CR, so a hand-edited homebrew value is always honoured.
+        armorClass:
+          type: [integer, "null"]
+        armorType:
+          type: [string, "null"]
+        hitPoints:
+          type: [integer, "null"]
+        hitDice:
+          type: [string, "null"]
+        hitPointsSuggested:
+          type: [integer, "null"]
+          description: Deterministic average computed from hitDice. Populated only when hitPoints is null.
+        speed:
+          type: [string, "null"]
+        abilities:
+          type: object
+          properties:
+            strength: { $ref: "#/components/schemas/Ability" }
+            dexterity: { $ref: "#/components/schemas/Ability" }
+            constitution: { $ref: "#/components/schemas/Ability" }
+            intelligence: { $ref: "#/components/schemas/Ability" }
+            wisdom: { $ref: "#/components/schemas/Ability" }
+            charisma: { $ref: "#/components/schemas/Ability" }
+        savingThrowProficiencies:
+          type: array
+          items:
+            type: string
+        skillProficiencies:
+          type: array
+          items:
+            type: string
+        passivePerception:
+          type: integer
+        damageVulnerabilities:
+          type: array
+          items:
+            type: string
+        damageResistances:
+          type: array
+          items:
+            type: string
+        damageImmunities:
+          type: array
+          items:
+            type: string
+        conditionImmunities:
+          type: array
+          items:
+            type: string
+        senses:
+          type: object
+          properties:
+            raw:
+              type: array
+            formatted:
+              type: array
+              items:
+                type: string
+        languages:
+          type: array
+          items:
+            type: string
+        traits:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              actionType:
+                type: string
+                description: Raw snake_case DB enum value (e.g. attack_action).
+              legendaryCost:
+                type: [integer, "null"]
+              formattedAttackLine:
+                type: [string, "null"]
+              formattedHitLine:
+                type: [string, "null"]
+        spellcasting:
+          type: array
+          description: >-
+            Uniform shape collapsing both of MFG's spellcasting systems
+            (npc_casting_profiles and the legacy npc_spellcasting row).
+            When an NPC has npc_casting_profiles rows, those win entirely
+            and the legacy row is ignored; the legacy row is only
+            synthesized into a single entry when no profiles exist. Always
+            an array, never null — empty when the NPC casts nothing.
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [Innate, Spellcasting, PactMagic]
+              ability:
+                type: string
+              saveDc:
+                type: [integer, "null"]
+              attackBonus:
+                type: [integer, "null"]
+              casterLevel:
+                type: [integer, "null"]
+              sourceClass:
+                type: [string, "null"]
+              psionics:
+                type: boolean
+              lines:
+                type: array
+                items:
+                  type: string
+              slots:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    level:
+                      type: integer
+                    count:
+                      type: integer
+                    spells:
+                      type: array
+                      items:
+                        type: string
+              notes:
+                type: [string, "null"]
+        notes:
+          type: [string, "null"]
+        personalityTraits:
+          type: [string, "null"]
+        ideals:
+          type: [string, "null"]
+        bonds:
+          type: [string, "null"]
+        flaws:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Ability:
+      type: object
+      properties:
+        score:
+          type: integer
+        modifier:
+          type: integer
+        display:
+          type: string
+          example: "+3"
+    FolderNode:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        path:
+          type: string
+        npcCount:
+          type: integer
+        templateCount:
+          type: integer
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/FolderNode"
+    FolderDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        path:
+          type: string
+        breadcrumb:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+        npcCount:
+          type: integer
+        templateCount:
+          type: integer
+        children:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              path:
+                type: string
+              npcCount:
+                type: integer
+              templateCount:
+                type: integer
