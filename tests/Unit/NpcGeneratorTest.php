@@ -78,6 +78,43 @@ class NpcGeneratorTest extends TestCase
         $this->assertEquals(4, $npc->proficiency_bonus);
     }
 
+    /**
+     * Verifies the bug that existed when CR_DATA only covered CR 0-10:
+     * passing CR 11+ previously silently fell back to CR 1 data (proficiency +2).
+     * After migration to ChallengeRating::proficiencyBonus(), the correct DMG
+     * band values are returned.
+     */
+    public function test_generate_sets_correct_proficiency_bonus_for_cr_above_10(): void
+    {
+        // CR 11 falls in the 9–12 band → +4
+        $npc = $this->generator->generate(['challenge_rating' => '11']);
+        $this->assertEquals(4, $npc->proficiency_bonus);
+
+        // CR 17 falls in the 17–20 band → +6
+        $npc = $this->generator->generate(['challenge_rating' => '17']);
+        $this->assertEquals(6, $npc->proficiency_bonus);
+
+        // CR 25 falls in the 25–28 band → +8
+        $npc = $this->generator->generate(['challenge_rating' => '25']);
+        $this->assertEquals(8, $npc->proficiency_bonus);
+    }
+
+    /**
+     * Proves that random generation stays within the bounded GENERATOR_CR_POOL
+     * (CR 0–10 only), preserving the same generation behaviour that existed when
+     * CR_DATA covered those 11 values. ChallengeRating now handles higher CRs
+     * correctly, but the generator pool is deliberately constrained.
+     */
+    public function test_random_npc_challenge_rating_stays_within_generator_pool(): void
+    {
+        $allowedCrs = ['0', '1/8', '1/4', '1/2', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+        for ($i = 0; $i < 20; $i++) {
+            $npc = $this->generator->generate();
+            $this->assertContains($npc->challenge_rating, $allowedCrs);
+        }
+    }
+
     public function test_generate_sets_hit_points(): void
     {
         $npc = $this->generator->generate();
