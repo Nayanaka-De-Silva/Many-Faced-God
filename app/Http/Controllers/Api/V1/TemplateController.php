@@ -116,15 +116,24 @@ class TemplateController extends Controller
 
         NpcResource::$folderPathMap = Folder::buildPathMap();
 
-        return response()->json([
-            'data' => NpcResource::collection($templates),
-            'meta' => [
-                'page'       => $page,
-                'pageSize'   => $pageSize,
-                'totalItems' => $total,
-                'totalPages' => $totalPages,
-            ],
-        ]);
+        $listEtag = md5(implode(':', [
+            'templates',
+            $templates->map(fn (Npc $npc): int => $npc->freshestUpdatedAt()->timestamp)->max() ?? '0',
+            $total,
+            http_build_query($params),
+        ]));
+
+        return response()
+            ->json([
+                'data' => NpcResource::collection($templates),
+                'meta' => [
+                    'page'       => $page,
+                    'pageSize'   => $pageSize,
+                    'totalItems' => $total,
+                    'totalPages' => $totalPages,
+                ],
+            ])
+            ->setEtag($listEtag, weak: true);
     }
 
     // ── GET /api/v1/templates/{template} ─────────────────────────────────────
@@ -147,6 +156,8 @@ class TemplateController extends Controller
 
         NpcResource::$folderPathMap = Folder::buildPathMap();
 
-        return response()->json(['data' => new NpcResource($npcModel)]);
+        return response()
+            ->json(['data' => new NpcResource($npcModel)])
+            ->setEtag(md5('npc:' . $npcModel->id . ':' . $npcModel->freshestUpdatedAt()->timestamp));
     }
 }

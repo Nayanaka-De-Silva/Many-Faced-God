@@ -134,15 +134,24 @@ class NpcController extends Controller
         // Precompute folder path map once per request — prevents N+1 path lookups
         NpcResource::$folderPathMap = Folder::buildPathMap();
 
-        return response()->json([
-            'data' => NpcResource::collection($npcs),
-            'meta' => [
-                'page'       => $page,
-                'pageSize'   => $pageSize,
-                'totalItems' => $total,
-                'totalPages' => $totalPages,
-            ],
-        ]);
+        $listEtag = md5(implode(':', [
+            'npcs',
+            $npcs->map(fn (Npc $npc): int => $npc->freshestUpdatedAt()->timestamp)->max() ?? '0',
+            $total,
+            http_build_query($params),
+        ]));
+
+        return response()
+            ->json([
+                'data' => NpcResource::collection($npcs),
+                'meta' => [
+                    'page'       => $page,
+                    'pageSize'   => $pageSize,
+                    'totalItems' => $total,
+                    'totalPages' => $totalPages,
+                ],
+            ])
+            ->setEtag($listEtag, weak: true);
     }
 
     // ── GET /api/v1/npcs/{npc} ────────────────────────────────────────────────
@@ -165,6 +174,8 @@ class NpcController extends Controller
 
         NpcResource::$folderPathMap = Folder::buildPathMap();
 
-        return response()->json(['data' => new NpcResource($npcModel)]);
+        return response()
+            ->json(['data' => new NpcResource($npcModel)])
+            ->setEtag(md5('npc:' . $npcModel->id . ':' . $npcModel->freshestUpdatedAt()->timestamp));
     }
 }

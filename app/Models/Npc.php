@@ -329,6 +329,31 @@ class Npc extends Model
     }
 
     /**
+     * The latest updated_at across this NPC and all of its statblock children
+     * (traits, actions, spellcasting/castingProfiles+innateEntries).
+     *
+     * Used for ETag computation. There is no $touches anywhere in this app
+     * (deliberately — see STATBLOCK_EAGER_LOADS docblock), so editing a
+     * child row does NOT bump npcs.updated_at. Callers must scan the
+     * children directly instead of trusting the NPC row's own timestamp.
+     *
+     * Relies on STATBLOCK_EAGER_LOADS already being loaded — issues no
+     * additional queries.
+     */
+    public function freshestUpdatedAt(): \Illuminate\Support\Carbon
+    {
+        $timestamps = collect([$this->updated_at])
+            ->merge($this->traits->pluck('updated_at'))
+            ->merge($this->actions->pluck('updated_at'))
+            ->merge($this->spellcasting !== null ? [$this->spellcasting->updated_at] : [])
+            ->merge($this->castingProfiles->pluck('updated_at'))
+            ->merge($this->castingProfiles->flatMap->innateEntries->pluck('updated_at'))
+            ->filter();
+
+        return $timestamps->max();
+    }
+
+    /**
      * Roll hit points based on hit dice.
      */
     public static function rollHitPoints(string $hitDice): int

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\FolderController;
 use App\Http\Controllers\Api\V1\NpcController;
 use App\Http\Controllers\Api\V1\TemplateController;
 use App\Http\Middleware\AddApiVersionHeader;
+use App\Http\Middleware\SetApiCacheHeaders;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -29,7 +30,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')
-    ->middleware(['throttle:300,1', AddApiVersionHeader::class])
+    ->middleware(['throttle:300,1', AddApiVersionHeader::class, SetApiCacheHeaders::class])
     ->group(function (): void {
         Route::get('/', [DiscoveryController::class, 'root']);
         Route::get('/health', [DiscoveryController::class, 'health']);
