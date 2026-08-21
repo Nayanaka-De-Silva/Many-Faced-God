@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\NpcCastingProfile;
+use App\Models\NpcNote;
 use Illuminate\Support\Str;
 
 class Npc extends Model
@@ -18,7 +19,6 @@ class Npc extends Model
         'name',
         'npc_type',
         'alignment',
-        'notes',
         'personality_traits',
         'ideals',
         'bonds',
@@ -74,7 +74,7 @@ class Npc extends Model
      * rendered no spellcasting section because only one of the two eager-load calls knew
      * about the relation.
      */
-    public const STATBLOCK_EAGER_LOADS = ['folder', 'traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries'];
+    public const STATBLOCK_EAGER_LOADS = ['folder', 'traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries', 'noteCards'];
 
     /**
      * D&D 5e Skills mapped to their ability scores.
@@ -206,6 +206,14 @@ class Npc extends Model
     public function castingProfiles(): HasMany
     {
         return $this->hasMany(NpcCastingProfile::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Get the NPC's note cards, ordered by sort_order.
+     */
+    public function noteCards(): HasMany
+    {
+        return $this->hasMany(NpcNote::class)->orderBy('sort_order');
     }
 
     /**
@@ -348,6 +356,7 @@ class Npc extends Model
             ->merge($this->spellcasting !== null ? [$this->spellcasting->updated_at] : [])
             ->merge($this->castingProfiles->pluck('updated_at'))
             ->merge($this->castingProfiles->flatMap->innateEntries->pluck('updated_at'))
+            ->merge($this->noteCards->pluck('updated_at'))
             ->filter();
 
         // Nullable: a row with every timestamp null (e.g. seeded via a raw
@@ -439,6 +448,10 @@ class Npc extends Model
             );
         }
 
+        foreach ($this->noteCards as $note) {
+            $clone->noteCards()->create($note->only(['title', 'description', 'sort_order']));
+        }
+
         // Clone casting profiles and their nested innate entries. Eager-load both levels up
         // front so this doesn't issue one extra query per profile for its innate entries.
         foreach ($this->castingProfiles()->with('innateEntries')->get() as $profile) {
@@ -478,18 +491,50 @@ class Npc extends Model
     }
 
     /**
-     * Get a compact preview of notes for card-style displays.
+     * Get a compact preview from the first note card for card-style displays.
+     * Returns "Title — first sentence(s) of description", or title alone when
+     * description is blank, or null when there are no note cards.
      */
     public function notePreview(int $limit = 160): ?string
     {
-        if (blank($this->notes)) {
+        $cards = $this->noteCards;
+
+        if ($cards === null || $cards->isEmpty()) {
             return null;
         }
 
-        $notes = Str::squish($this->notes);
-        preg_match('/^(.+?[.!?](?:\s+.+?[.!?])?)/u', $notes, $matches);
+        $first = $cards->first();
+        $title = Str::squish($first->title ?? '');
 
-        return Str::limit($matches[1] ?? $notes, $limit);
+        if (blank($first->description)) {
+            return Str::limit($title, $limit);
+        }
+
+        $description = Str::squish($first->description);
+        preg_match('/^(.+?[.!?](?:\s+.+?[.!?])?)/u', $description, $matches);
+        $descPreview = $matches[1] ?? $description;
+
+        return Str::limit("{$title} — {$descPreview}", $limit);
+    }
+
+    /**
+     * Derive a flat notes string from all note cards joined in sort order.
+     * Used by the public API to keep the legacy `notes` key non-breaking.
+     * Returns null when there are no cards.
+     */
+    public function notesText(): ?string
+    {
+        $cards = $this->noteCards;
+
+        if ($cards === null || $cards->isEmpty()) {
+            return null;
+        }
+
+        return $cards->map(function (NpcNote $card): string {
+            return filled($card->description)
+                ? "{$card->title}\n\n{$card->description}"
+                : $card->title;
+        })->join("\n\n");
     }
 
     /**

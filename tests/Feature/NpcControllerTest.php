@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Npc;
 use App\Models\Folder;
+use App\Models\NpcNote;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -245,7 +246,6 @@ class NpcControllerTest extends TestCase
         $response = $this->post(route('npcs.store'), [
             'name' => 'Broken Attack Action Template',
             'is_template' => '1',
-            'notes' => str_repeat('Template notes. ', 160),
             'languages' => '',
             'languages_text' => 'Common, Elvish',
             'strength' => 10,
@@ -282,11 +282,13 @@ class NpcControllerTest extends TestCase
         $this->assertFormFieldValueByName($response, 'actions[0][name]', 'Incomplete Attack');
     }
 
-    public function test_store_creates_npc_with_notes_and_character_notes(): void
+    public function test_store_creates_npc_with_note_cards_and_character_notes(): void
     {
         $response = $this->post(route('npcs.store'), [
             'name' => 'NPC With Notes',
-            'notes' => 'Keeps a ledger of every favor owed.',
+            'note_cards' => [
+                ['title' => 'Background', 'description' => 'Keeps a ledger of every favor owed.'],
+            ],
             'personality_traits' => 'Speaks in clipped, measured sentences.',
             'ideals' => 'Debts should always be repaid.',
             'bonds' => 'Protects the city archives.',
@@ -302,20 +304,28 @@ class NpcControllerTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('npcs', [
             'name' => 'NPC With Notes',
-            'notes' => 'Keeps a ledger of every favor owed.',
             'personality_traits' => 'Speaks in clipped, measured sentences.',
             'ideals' => 'Debts should always be repaid.',
             'bonds' => 'Protects the city archives.',
             'flaws' => 'Cannot resist prying into secrets.',
         ]);
+        $npc = Npc::where('name', 'NPC With Notes')->first();
+        $this->assertDatabaseHas('npc_notes', [
+            'npc_id'      => $npc->id,
+            'title'       => 'Background',
+            'description' => 'Keeps a ledger of every favor owed.',
+            'sort_order'  => 0,
+        ]);
     }
 
-    public function test_store_template_clears_character_note_fields(): void
+    public function test_store_template_keeps_note_cards_but_clears_character_note_fields(): void
     {
         $response = $this->post(route('npcs.store'), [
             'name' => 'Template With Notes',
             'is_template' => '1',
-            'notes' => 'Use for calculating customs tolls.',
+            'note_cards' => [
+                ['title' => 'Usage', 'description' => 'Use for calculating customs tolls.'],
+            ],
             'personality_traits' => 'Should not persist',
             'ideals' => 'Should not persist',
             'bonds' => 'Should not persist',
@@ -329,14 +339,19 @@ class NpcControllerTest extends TestCase
         ]);
 
         $response->assertRedirect();
+        $template = Npc::where('name', 'Template With Notes')->first();
         $this->assertDatabaseHas('npcs', [
-            'name' => 'Template With Notes',
-            'is_template' => true,
-            'notes' => 'Use for calculating customs tolls.',
+            'id'                => $template->id,
+            'is_template'       => true,
             'personality_traits' => null,
-            'ideals' => null,
-            'bonds' => null,
-            'flaws' => null,
+            'ideals'            => null,
+            'bonds'             => null,
+            'flaws'             => null,
+        ]);
+        // Note cards are NOT suppressed for templates
+        $this->assertDatabaseHas('npc_notes', [
+            'npc_id' => $template->id,
+            'title'  => 'Usage',
         ]);
     }
 
@@ -377,21 +392,29 @@ class NpcControllerTest extends TestCase
         $response->assertSee('Display NPC');
     }
 
-    public function test_show_displays_notes_and_character_notes(): void
+    public function test_show_displays_note_cards_and_character_notes(): void
     {
         $npc = Npc::factory()->create([
             'name' => 'Detailed NPC',
-            'notes' => 'Once served in the northern watch.',
             'personality_traits' => 'Never breaks eye contact.',
             'ideals' => 'Duty above comfort.',
             'bonds' => 'His missing captain.',
             'flaws' => 'Suspicious of everyone new.',
+        ]);
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'Service History',
+            'description' => 'Once served in the northern watch.',
+            'sort_order'  => 0,
         ]);
 
         $response = $this->get(route('npcs.show', $npc));
 
         $response->assertStatus(200);
         $response->assertSee('Notes');
+        // Title is shown in the collapse button; description is inside the collapse div
+        $response->assertSee('Service History');
+        $response->assertSee('collapse', false); // description hidden in collapse container
         $response->assertSee('Once served in the northern watch.');
         $response->assertSee('Personality Traits');
         $response->assertSee('Never breaks eye contact.');
@@ -476,13 +499,15 @@ class NpcControllerTest extends TestCase
         $this->assertDatabaseHas('npcs', ['id' => $npc->id, 'name' => 'New Name']);
     }
 
-    public function test_update_persists_note_fields(): void
+    public function test_update_persists_note_cards_and_character_note_fields(): void
     {
         $npc = Npc::factory()->create(['name' => 'Archivist']);
 
         $response = $this->put(route('npcs.update', $npc), [
             'name' => 'Archivist',
-            'notes' => 'Remembers every visitor by voice.',
+            'note_cards' => [
+                ['title' => 'Memory', 'description' => 'Remembers every visitor by voice.'],
+            ],
             'personality_traits' => 'Collects names obsessively.',
             'ideals' => 'Knowledge should outlive empires.',
             'bonds' => 'The sealed royal archive.',
@@ -498,12 +523,58 @@ class NpcControllerTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('npcs', [
             'id' => $npc->id,
-            'notes' => 'Remembers every visitor by voice.',
             'personality_traits' => 'Collects names obsessively.',
             'ideals' => 'Knowledge should outlive empires.',
             'bonds' => 'The sealed royal archive.',
             'flaws' => 'Cannot let a mystery rest.',
         ]);
+        $this->assertDatabaseHas('npc_notes', [
+            'npc_id'      => $npc->id,
+            'title'       => 'Memory',
+            'description' => 'Remembers every visitor by voice.',
+            'sort_order'  => 0,
+        ]);
+    }
+
+    public function test_update_replaces_prior_note_cards(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Scholar']);
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Old Card', 'sort_order' => 0]);
+
+        $this->put(route('npcs.update', $npc), [
+            'name' => 'Scholar',
+            'note_cards' => [
+                ['title' => 'New Card', 'description' => 'Fresh content.'],
+            ],
+            'strength' => 10, 'dexterity' => 10, 'constitution' => 10,
+            'intelligence' => 10, 'wisdom' => 10, 'charisma' => 10,
+        ]);
+
+        $this->assertDatabaseMissing('npc_notes', ['npc_id' => $npc->id, 'title' => 'Old Card']);
+        $this->assertDatabaseHas('npc_notes', ['npc_id' => $npc->id, 'title' => 'New Card']);
+    }
+
+    public function test_update_note_card_sort_order_follows_body_position(): void
+    {
+        $npc = Npc::factory()->create(['name' => 'Ranger']);
+
+        // Intentionally submit with non-sequential indices — PHP order, not key order, wins
+        $this->put(route('npcs.update', $npc), [
+            'name' => 'Ranger',
+            'note_cards' => [
+                5 => ['title' => 'First Submitted',  'description' => ''],
+                0 => ['title' => 'Second Submitted', 'description' => ''],
+            ],
+            'strength' => 10, 'dexterity' => 10, 'constitution' => 10,
+            'intelligence' => 10, 'wisdom' => 10, 'charisma' => 10,
+        ]);
+
+        $cards = NpcNote::where('npc_id', $npc->id)->orderBy('sort_order')->get();
+        $this->assertCount(2, $cards);
+        $this->assertEquals('First Submitted',  $cards[0]->title);
+        $this->assertEquals(0, $cards[0]->sort_order);
+        $this->assertEquals('Second Submitted', $cards[1]->title);
+        $this->assertEquals(1, $cards[1]->sort_order);
     }
 
     public function test_update_persists_attack_action_fields(): void
@@ -556,7 +627,6 @@ class NpcControllerTest extends TestCase
         $response = $this->put(route('npcs.update', $npc), [
             'name' => 'Guardian Template',
             'is_template' => '1',
-            'notes' => str_repeat('Template notes. ', 160),
             'strength' => 10,
             'dexterity' => 10,
             'constitution' => 10,
@@ -634,14 +704,18 @@ class NpcControllerTest extends TestCase
 
     public function test_index_shows_notes_preview_without_later_sentences(): void
     {
-        Npc::factory()->create([
-            'name' => 'Preview NPC',
-            'notes' => 'First note sentence. Second note sentence. Third note sentence.',
+        $npc = Npc::factory()->create(['name' => 'Preview NPC']);
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'General Notes',
+            'description' => 'First note sentence. Second note sentence. Third note sentence.',
+            'sort_order'  => 0,
         ]);
 
         $response = $this->get(route('npcs.index'));
 
         $response->assertStatus(200);
+        // Preview shows "Title — first two sentences of description"
         $response->assertSee('First note sentence. Second note sentence.');
         $response->assertDontSee('Third note sentence.');
     }

@@ -82,11 +82,11 @@
 
                     <p><strong>Challenge</strong> {{ $template->challenge_rating ?? '0' }}</p>
 
-                    @if($template->notes)
+                    @if($template->noteCards->isNotEmpty())
                         <hr class="dnd-divider">
 
                         <h5 class="text-danger mt-4">Notes</h5>
-                        <p class="npc-notes-content">{{ $template->notes }}</p>
+                        @include('npcs.partials._note_cards', ['npc' => $template])
                     @endif
 
                     @if($template->traits->count() > 0)

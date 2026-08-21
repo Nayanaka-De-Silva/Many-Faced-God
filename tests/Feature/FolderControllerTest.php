@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Folder;
 use App\Models\Npc;
+use App\Models\NpcNote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -139,9 +140,12 @@ class FolderControllerTest extends TestCase
     public function test_show_displays_notes_preview_for_npcs_in_folder(): void
     {
         $folder = Folder::factory()->create();
-        Npc::factory()->inFolder($folder)->create([
-            'name' => 'Folder Preview NPC',
-            'notes' => 'First folder sentence. Second folder sentence. Third folder sentence.',
+        $npc = Npc::factory()->inFolder($folder)->create(['name' => 'Folder Preview NPC']);
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'Folder Note',
+            'description' => 'First folder sentence. Second folder sentence. Third folder sentence.',
+            'sort_order'  => 0,
         ]);
 
         $response = $this->get(route('folders.show', $folder));

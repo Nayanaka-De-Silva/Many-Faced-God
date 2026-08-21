@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Npc;
 use App\Models\Folder;
+use App\Models\NpcNote;
 use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use App\Models\NpcCastingProfile;
@@ -147,10 +148,44 @@ class NpcModelTest extends TestCase
         $this->assertFalse($template->requiresTemplateHitPointChoice());
     }
 
-    public function test_npc_duplicate_copies_note_fields(): void
+    public function test_npc_has_many_note_cards(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->count(2)->create(['npc_id' => $npc->id]);
+
+        $this->assertCount(2, $npc->noteCards);
+    }
+
+    public function test_npc_note_cards_are_ordered_by_sort_order(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Third',  'sort_order' => 2]);
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'First',  'sort_order' => 0]);
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Second', 'sort_order' => 1]);
+
+        $titles = $npc->fresh()->noteCards->pluck('title')->toArray();
+        $this->assertEquals(['First', 'Second', 'Third'], $titles);
+    }
+
+    public function test_npc_duplicate_copies_note_cards_with_sort_order(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Alpha', 'description' => 'First card.', 'sort_order' => 0]);
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Beta',  'description' => 'Second card.', 'sort_order' => 1]);
+
+        $clone = $npc->duplicate();
+
+        $cloneCards = NpcNote::where('npc_id', $clone->id)->orderBy('sort_order')->get();
+        $this->assertCount(2, $cloneCards);
+        $this->assertEquals('Alpha', $cloneCards[0]->title);
+        $this->assertEquals(0, $cloneCards[0]->sort_order);
+        $this->assertEquals('Beta', $cloneCards[1]->title);
+        $this->assertEquals(1, $cloneCards[1]->sort_order);
+    }
+
+    public function test_npc_duplicate_copies_character_note_fields(): void
     {
         $npc = Npc::factory()->create([
-            'notes' => 'Tracks party debt.',
             'personality_traits' => 'Always taps the table before speaking.',
             'ideals' => 'Order must be preserved.',
             'bonds' => 'Her guild apprentice.',
@@ -159,11 +194,39 @@ class NpcModelTest extends TestCase
 
         $clone = $npc->duplicate();
 
-        $this->assertEquals('Tracks party debt.', $clone->notes);
         $this->assertEquals('Always taps the table before speaking.', $clone->personality_traits);
         $this->assertEquals('Order must be preserved.', $clone->ideals);
         $this->assertEquals('Her guild apprentice.', $clone->bonds);
         $this->assertEquals('Overconfident when pressured.', $clone->flaws);
+    }
+
+    public function test_notes_text_joins_cards_in_sort_order(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Second', 'description' => 'B', 'sort_order' => 1]);
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'First',  'description' => 'A', 'sort_order' => 0]);
+
+        $npc->load('noteCards');
+        $text = $npc->notesText();
+
+        $this->assertEquals("First\n\nA\n\nSecond\n\nB", $text);
+    }
+
+    public function test_notes_text_returns_null_when_no_cards(): void
+    {
+        $npc = Npc::factory()->create();
+        $npc->load('noteCards');
+
+        $this->assertNull($npc->notesText());
+    }
+
+    public function test_notes_text_omits_description_block_when_description_blank(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create(['npc_id' => $npc->id, 'title' => 'Title Only', 'description' => null, 'sort_order' => 0]);
+
+        $npc->load('noteCards');
+        $this->assertEquals('Title Only', $npc->notesText());
     }
 
     public function test_npc_templates_scope(): void

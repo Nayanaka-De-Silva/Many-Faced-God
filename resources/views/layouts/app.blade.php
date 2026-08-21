@@ -290,6 +290,26 @@
             white-space: pre-line;
         }
 
+        /* Note cards (view and edit mode) */
+        .note-card {
+            border-left: 3px solid var(--dnd-red);
+            padding-left: 0.5rem;
+        }
+
+        .note-card-title {
+            color: var(--dnd-gold);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .note-card-handle {
+            cursor: grab;
+        }
+
+        .note-card-row.dragging {
+            opacity: .5;
+        }
+
         /* Divider */
         .dnd-divider {
             border: none;

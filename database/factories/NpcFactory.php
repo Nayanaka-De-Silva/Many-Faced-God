@@ -16,7 +16,6 @@ class NpcFactory extends Factory
             'name' => fake()->name(),
             'npc_type' => fake()->randomElement(['Medium Humanoid', 'Small Humanoid', 'Large Beast', 'Medium Undead']),
             'alignment' => fake()->randomElement(Npc::ALIGNMENTS),
-            'notes' => fake()->optional()->paragraph(),
             'personality_traits' => fake()->optional()->sentence(),
             'ideals' => fake()->optional()->sentence(),
             'bonds' => fake()->optional()->sentence(),

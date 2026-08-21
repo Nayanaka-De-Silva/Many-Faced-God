@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Npc;
+use App\Models\NpcNote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -44,15 +45,14 @@ class TemplateControllerTest extends TestCase
         $response->assertSee('Template');
     }
 
-    public function test_show_displays_template_notes_without_character_notes(): void
+    public function test_show_displays_template_note_cards_without_character_notes(): void
     {
-        $template = Npc::factory()->template()->create([
-            'name' => 'Noble Template',
-            'notes' => 'Use this for courtly intrigue scenes.',
-            'personality_traits' => 'Should stay hidden.',
-            'ideals' => 'Should stay hidden.',
-            'bonds' => 'Should stay hidden.',
-            'flaws' => 'Should stay hidden.',
+        $template = Npc::factory()->template()->create(['name' => 'Noble Template']);
+        NpcNote::factory()->create([
+            'npc_id'      => $template->id,
+            'title'       => 'Usage',
+            'description' => 'Use this for courtly intrigue scenes.',
+            'sort_order'  => 0,
         ]);
 
         $response = $this->get(route('templates.show', $template));
@@ -60,9 +60,9 @@ class TemplateControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Noble Template');
         $response->assertSee('Notes');
-        $response->assertSee('Use this for courtly intrigue scenes.');
+        $response->assertSee('Usage'); // card title visible
+        $response->assertSee('Use this for courtly intrigue scenes.'); // description in collapse
         $response->assertDontSee('Personality Traits');
-        $response->assertDontSee('Should stay hidden.');
     }
 
     public function test_show_displays_attack_actions(): void

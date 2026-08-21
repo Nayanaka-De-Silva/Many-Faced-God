@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Npc;
+use App\Models\NpcNote;
 use App\Models\Folder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -48,9 +49,12 @@ class DashboardControllerTest extends TestCase
 
     public function test_dashboard_shows_recent_npc_notes_preview(): void
     {
-        Npc::factory()->create([
-            'name' => 'Preview NPC',
-            'notes' => 'First recent sentence. Second recent sentence. Third recent sentence.',
+        $npc = Npc::factory()->create(['name' => 'Preview NPC']);
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'Preview Note',
+            'description' => 'First recent sentence. Second recent sentence. Third recent sentence.',
+            'sort_order'  => 0,
         ]);
 
         $response = $this->get(route('dashboard'));
