@@ -69,8 +69,8 @@ class FolderController extends Controller
     {
         $folder->load([
             'parent',
-            'actualNpcs',
-            'templates',
+            'actualNpcs.noteCards',
+            'templates.noteCards',
             'children' => fn ($query) => $query->withCount(['actualNpcs', 'templates']),
         ])->loadCount(['actualNpcs', 'templates']);
 

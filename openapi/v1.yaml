@@ -550,6 +550,12 @@ components:
                 type: [string, "null"]
         notes:
           type: [string, "null"]
+          description: Derived flat string joining all note cards (title + description). Kept for non-breaking backwards compatibility.
+        noteCards:
+          type: array
+          description: Ordered list of note cards attached to this NPC or template.
+          items:
+            $ref: '#/components/schemas/NpcNote'
         personalityTraits:
           type: [string, "null"]
         ideals:
@@ -628,3 +634,16 @@ components:
                 type: integer
               templateCount:
                 type: integer
+
+    NpcNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: [string, "null"]
+        sortOrder:
+          type: integer
+      required: [id, title, sortOrder]

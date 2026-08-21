@@ -14,7 +14,7 @@ class DashboardController extends Controller
     public function index(): View
     {
         $recentNpcs = Npc::npcs()
-            ->with(['folder'])
+            ->with(['folder', 'noteCards'])
             ->orderBy('updated_at', 'desc')
             ->limit(10)
             ->get();

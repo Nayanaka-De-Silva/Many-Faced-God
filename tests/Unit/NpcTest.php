@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Npc;
+use App\Models\NpcNote;
 use PHPUnit\Framework\TestCase;
 
 class NpcTest extends TestCase
@@ -102,13 +103,45 @@ class NpcTest extends TestCase
         $this->assertCount(10, Npc::ALIGNMENTS);
     }
 
-    public function test_note_preview_returns_first_two_sentences(): void
+    public function test_note_preview_returns_null_when_no_cards(): void
     {
-        $npc = new Npc([
-            'notes' => 'First detail. Second detail. Third detail should not appear.',
-        ]);
+        $npc = new Npc();
+        $npc->setRelation('noteCards', collect());
 
-        $this->assertEquals('First detail. Second detail.', $npc->notePreview());
+        $this->assertNull($npc->notePreview());
+    }
+
+    public function test_note_preview_returns_title_only_when_description_blank(): void
+    {
+        $note = new NpcNote(['title' => 'Background', 'description' => null]);
+        $npc = new Npc();
+        $npc->setRelation('noteCards', collect([$note]));
+
+        $this->assertEquals('Background', $npc->notePreview());
+    }
+
+    public function test_note_preview_returns_title_dash_first_sentence_of_description(): void
+    {
+        $note = new NpcNote([
+            'title'       => 'Background',
+            'description' => 'First detail. Second detail. Third detail should not appear.',
+        ]);
+        $npc = new Npc();
+        $npc->setRelation('noteCards', collect([$note]));
+
+        $this->assertEquals('Background — First detail. Second detail.', $npc->notePreview());
+    }
+
+    public function test_note_preview_reads_from_first_card_only(): void
+    {
+        $first  = new NpcNote(['title' => 'Alpha', 'description' => 'First card.']);
+        $second = new NpcNote(['title' => 'Beta',  'description' => 'Second card.']);
+        $npc = new Npc();
+        $npc->setRelation('noteCards', collect([$first, $second]));
+
+        $preview = $npc->notePreview();
+        $this->assertStringContainsString('Alpha', $preview);
+        $this->assertStringNotContainsString('Beta', $preview);
     }
 
     public function test_has_character_notes_detects_populated_fields(): void

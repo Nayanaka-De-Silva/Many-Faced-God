@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\V1;
 use App\Models\Folder;
 use App\Models\Npc;
 use App\Models\NpcCastingProfile;
+use App\Models\NpcNote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -84,8 +85,65 @@ class NpcApiTest extends TestCase
         $this->assertArrayHasKey('damageImmunities', $npc);
         $this->assertArrayHasKey('conditionImmunities', $npc);
         $this->assertArrayHasKey('personalityTraits', $npc);
+        $this->assertArrayHasKey('notes', $npc);
+        $this->assertArrayHasKey('noteCards', $npc);
         $this->assertArrayHasKey('createdAt', $npc);
         $this->assertArrayHasKey('updatedAt', $npc);
+    }
+
+    public function test_npc_note_cards_array_has_correct_shape(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'Background',
+            'description' => 'Former soldier.',
+            'sort_order'  => 0,
+        ]);
+
+        $response = $this->getJson("/api/v1/npcs/{$npc->id}");
+        $response->assertStatus(200);
+
+        $noteCards = $response->json('data.noteCards');
+        $this->assertIsArray($noteCards);
+        $this->assertCount(1, $noteCards);
+        $this->assertArrayHasKey('id', $noteCards[0]);
+        $this->assertArrayHasKey('title', $noteCards[0]);
+        $this->assertArrayHasKey('description', $noteCards[0]);
+        $this->assertArrayHasKey('sortOrder', $noteCards[0]);
+        $this->assertEquals('Background', $noteCards[0]['title']);
+        $this->assertEquals('Former soldier.', $noteCards[0]['description']);
+        $this->assertEquals(0, $noteCards[0]['sortOrder']);
+    }
+
+    public function test_notes_is_derived_string_from_cards(): void
+    {
+        $npc = Npc::factory()->create();
+        NpcNote::factory()->create([
+            'npc_id'      => $npc->id,
+            'title'       => 'Lore',
+            'description' => 'Keeper of the flame.',
+            'sort_order'  => 0,
+        ]);
+
+        $response = $this->getJson("/api/v1/npcs/{$npc->id}");
+        $response->assertStatus(200);
+
+        $notes = $response->json('data.notes');
+        $this->assertIsString($notes);
+        $this->assertStringContainsString('Lore', $notes);
+        $this->assertStringContainsString('Keeper of the flame.', $notes);
+    }
+
+    public function test_notes_is_null_when_no_note_cards(): void
+    {
+        $npc = Npc::factory()->create();
+
+        $response = $this->getJson("/api/v1/npcs/{$npc->id}");
+        $response->assertStatus(200);
+
+        $this->assertNull($response->json('data.notes'));
+        $this->assertEquals([], $response->json('data.noteCards'));
     }
 
     // ── Templates excluded from /npcs ───────────────────────────────────────

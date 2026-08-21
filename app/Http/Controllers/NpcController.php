@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Npc;
 use App\Models\Folder;
-use App\Models\NpcTrait;
 use App\Models\NpcAction;
 use App\Models\NpcCastingProfile;
 use App\Models\NpcInnateSpellEntry;
 use App\Models\NpcSpellcasting;
+use App\Models\NpcTrait;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +26,7 @@ class NpcController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Npc::with(['folder', 'traits', 'actions'])
+        $query = Npc::with(['folder', 'traits', 'actions', 'noteCards'])
             ->npcs()
             ->orderBy('name');
 
@@ -77,12 +77,12 @@ class NpcController extends Controller
 
         // If creating from template or existing NPC
         if ($request->filled('from_template')) {
-            $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries'])
+            $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries', 'noteCards'])
                 ->find($request->from_template);
 
             $sourceNpc?->applyTemplateHitPointMode($templateHitPointMode);
         } elseif ($request->filled('from_npc')) {
-            $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries'])
+            $sourceNpc = Npc::with(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries', 'noteCards'])
                 ->find($request->from_npc);
         }
 
@@ -102,12 +102,19 @@ class NpcController extends Controller
 
         $validated = $this->sanitizeNpcData($validator->validated());
 
+        // Extract note_cards before creating the NPC (not a column)
+        $noteCards = $validated['note_cards'] ?? [];
+        unset($validated['note_cards']);
+
         // Roll hit points if hit dice provided but no HP
         if (empty($validated['hit_points']) && !empty($validated['hit_dice'])) {
             $validated['hit_points'] = Npc::rollHitPoints($validated['hit_dice']);
         }
 
         $npc = Npc::create($validated);
+
+        // Create note cards
+        $this->createNoteCards($npc, $noteCards);
 
         // Create traits
         if (!empty($validated['traits'])) {
@@ -154,7 +161,7 @@ class NpcController extends Controller
      */
     public function edit(Npc $npc): View
     {
-        $npc->load(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries']);
+        $npc->load(['traits', 'actions', 'spellcasting', 'castingProfiles.innateEntries', 'noteCards']);
         $folders = Folder::treeOptions();
 
         return view('npcs.edit', compact('npc', 'folders'));
@@ -173,7 +180,15 @@ class NpcController extends Controller
 
         $validated = $this->sanitizeNpcData($validator->validated());
 
+        // Extract note_cards before updating the NPC (not a column)
+        $noteCards = $validated['note_cards'] ?? [];
+        unset($validated['note_cards']);
+
         $npc->update($validated);
+
+        // Sync note cards (delete-and-recreate, matching traits/actions pattern)
+        $npc->noteCards()->delete();
+        $this->createNoteCards($npc, $noteCards);
 
         // Sync traits
         $npc->traits()->delete();
@@ -341,7 +356,6 @@ class NpcController extends Controller
             'name' => 'required|string|max:255',
             'npc_type' => 'nullable|string|max:255',
             'alignment' => 'nullable|string|max:255',
-            'notes' => 'nullable|string',
             'personality_traits' => 'nullable|string',
             'ideals' => 'nullable|string',
             'bonds' => 'nullable|string',
@@ -372,6 +386,10 @@ class NpcController extends Controller
             'proficiency_bonus' => 'nullable|integer|min:0',
             'folder_id' => 'nullable|exists:folders,id',
             'is_template' => 'boolean',
+            // Note cards (replaces the legacy notes text column)
+            'note_cards'               => 'nullable|array',
+            'note_cards.*.title'       => 'required_with:note_cards|string|max:255',
+            'note_cards.*.description' => 'nullable|string',
             // Related models
             'traits' => 'nullable|array',
             'traits.*.id' => 'nullable|exists:npc_traits,id',
@@ -595,6 +613,21 @@ class NpcController extends Controller
 
             return $action;
         }, $actions);
+    }
+
+    /**
+     * Persist note cards for the given NPC.
+     * sort_order is derived from submission position, not trusted from client input.
+     */
+    private function createNoteCards(Npc $npc, array $notes): void
+    {
+        foreach (array_values($notes) as $index => $noteData) {
+            $npc->noteCards()->create([
+                'title'       => $noteData['title'],
+                'description' => $noteData['description'] ?? null,
+                'sort_order'  => $index,
+            ]);
+        }
     }
 
     /**

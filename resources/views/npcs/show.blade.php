@@ -126,14 +126,12 @@
                     <!-- Challenge Rating -->
                     <p><strong>Challenge</strong> {{ $npc->challenge_rating ?? '0' }} ({{ $npc->proficiency_bonus ? '+' . $npc->proficiency_bonus : '+2' }} Proficiency Bonus)</p>
 
-                    @if($npc->notes || $npc->hasCharacterNotes())
+                    @if($npc->noteCards->isNotEmpty() || $npc->hasCharacterNotes())
                         <hr class="dnd-divider">
 
                         <h5 class="text-danger">Notes</h5>
 
-                        @if($npc->notes)
-                            <p class="npc-notes-content">{{ $npc->notes }}</p>
-                        @endif
+                        @include('npcs.partials._note_cards', ['npc' => $npc])
 
                         @if($npc->hasCharacterNotes())
                             <dl class="row mb-0">

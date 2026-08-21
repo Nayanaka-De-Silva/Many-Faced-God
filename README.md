@@ -131,6 +131,11 @@ into combat without the DM retyping them.
 - **Challenge Rating:** always serialized as an object —
   `{"value","xp","xpIfDangerous"}` — never a bare number or a coerced `0`.
   A missing CR is honestly reported as `null`.
+- **Note cards:** each NPC and template includes a `noteCards` array
+  (`[{"id","title","description","sortOrder"}]`) in display order. A derived
+  flat `notes` string (title + description blocks joined by `\n\n`) is also
+  returned for backwards compatibility; new consumers should read `noteCards`
+  directly.
 
 | Method | Route | Description |
 |--------|-------|-------------|

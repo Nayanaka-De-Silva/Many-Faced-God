@@ -78,12 +78,33 @@
         <i class="bi bi-journal-text"></i> Notes
     </div>
     <div class="card-body">
-        <div class="mb-3">
-            <label for="notes" class="form-label">General Notes</label>
-            <textarea name="notes" id="notes" class="form-control" rows="4"
-                placeholder="Add general DM notes for this NPC or template.">{{ $formValue('notes', $npc?->notes) }}</textarea>
-            <small class="text-muted">Templates can store general notes. Character notes below are NPC-only.</small>
+        <div id="noteCardsContainer">
+            @php $noteCards = $formValue('note_cards', $npc?->noteCards?->toArray() ?? []); @endphp
+            @forelse($noteCards as $index => $note)
+                <div class="note-card-row border rounded p-3 mb-3" draggable="true">
+                    <div class="row g-2 align-items-start">
+                        <div class="col-auto d-flex align-items-center">
+                            <span class="note-card-handle bi bi-grip-vertical text-muted fs-5"></span>
+                        </div>
+                        <div class="col">
+                            <input type="text" name="note_cards[{{ $index }}][title]"
+                                   class="form-control mb-2" placeholder="Note Title"
+                                   value="{{ $note['title'] ?? '' }}">
+                            <textarea name="note_cards[{{ $index }}][description]"
+                                      class="form-control" rows="3"
+                                      placeholder="Description (optional)">{{ $note['description'] ?? '' }}</textarea>
+                        </div>
+                        <div class="col-auto d-flex flex-column gap-1">
+                            <button type="button" class="btn btn-outline-secondary btn-sm note-card-move-up" title="Move up">▲</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm note-card-move-down" title="Move down">▼</button>
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-note-card">×</button>
+                        </div>
+                    </div>
+                </div>
+            @empty
+            @endforelse
         </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="addNoteCard">+ Add Note Card</button>
 
         <div id="characterNotesSection" style="{{ $isTemplate ? 'display:none;' : '' }}">
             <div class="row g-3">
@@ -497,6 +518,10 @@
 
 @push('scripts')
 <script>
+    // Seeded from the highest existing key (not count()) because a validation-failure
+    // re-render can leave a gapped note_cards array (e.g. {0, 2} after removing index 1),
+    // and count() would collide with a still-present key.
+    let noteCardIndex = {{ empty($noteCards ?? []) ? 0 : max(array_keys($noteCards)) + 1 }};
     let traitIndex = {{ count($traits) }};
     let actionIndex = {{ count($actions) }};
     let senseIndex = {{ count($senses ?: [1]) }};
@@ -507,6 +532,110 @@
 
         characterNotesSection.style.display = isTemplateCheckbox.checked ? 'none' : '';
     }
+
+    // Note card: add
+    document.getElementById('addNoteCard').addEventListener('click', function() {
+        const container = document.getElementById('noteCardsContainer');
+        const html = `
+            <div class="note-card-row border rounded p-3 mb-3" draggable="true">
+                <div class="row g-2 align-items-start">
+                    <div class="col-auto d-flex align-items-center">
+                        <span class="note-card-handle bi bi-grip-vertical text-muted fs-5"></span>
+                    </div>
+                    <div class="col">
+                        <input type="text" name="note_cards[${noteCardIndex}][title]"
+                               class="form-control mb-2" placeholder="Note Title">
+                        <textarea name="note_cards[${noteCardIndex}][description]"
+                                  class="form-control" rows="3"
+                                  placeholder="Description (optional)"></textarea>
+                    </div>
+                    <div class="col-auto d-flex flex-column gap-1">
+                        <button type="button" class="btn btn-outline-secondary btn-sm note-card-move-up" title="Move up">▲</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm note-card-move-down" title="Move down">▼</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm remove-note-card">×</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        noteCardIndex++;
+        updateNoteCardButtons();
+    });
+
+    // Note card: remove, move up/down (delegated — rows created dynamically)
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('noteCardsContainer');
+
+        if (e.target.classList.contains('remove-note-card')) {
+            e.target.closest('.note-card-row').remove();
+            updateNoteCardButtons();
+            return;
+        }
+
+        if (e.target.classList.contains('note-card-move-up')) {
+            const row = e.target.closest('.note-card-row');
+            const prev = row.previousElementSibling;
+            if (prev && prev.classList.contains('note-card-row')) {
+                container.insertBefore(row, prev);
+                updateNoteCardButtons();
+            }
+            return;
+        }
+
+        if (e.target.classList.contains('note-card-move-down')) {
+            const row = e.target.closest('.note-card-row');
+            const next = row.nextElementSibling;
+            if (next && next.classList.contains('note-card-row')) {
+                container.insertBefore(next, row);
+                updateNoteCardButtons();
+            }
+            return;
+        }
+    });
+
+    function updateNoteCardButtons() {
+        const rows = document.querySelectorAll('#noteCardsContainer .note-card-row');
+        rows.forEach((row, i) => {
+            row.querySelector('.note-card-move-up').disabled = (i === 0);
+            row.querySelector('.note-card-move-down').disabled = (i === rows.length - 1);
+        });
+    }
+    updateNoteCardButtons();
+
+    // Note card: HTML5 drag-and-drop reorder
+    (function() {
+        const container = document.getElementById('noteCardsContainer');
+        let dragging = null;
+
+        container.addEventListener('dragstart', function(e) {
+            dragging = e.target.closest('.note-card-row');
+            if (dragging) {
+                dragging.classList.add('dragging');
+                // Firefox requires dataTransfer to carry data before it will start the drag.
+                e.dataTransfer.setData('text/plain', '');
+            }
+        });
+
+        container.addEventListener('dragend', function() {
+            if (dragging) dragging.classList.remove('dragging');
+            dragging = null;
+            updateNoteCardButtons();
+        });
+
+        container.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            if (!dragging) return;
+            const target = e.target.closest('.note-card-row');
+            if (!target || target === dragging) return;
+            const rect = target.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            if (e.clientY < midpoint) {
+                container.insertBefore(dragging, target);
+            } else {
+                container.insertBefore(dragging, target.nextSibling);
+            }
+        });
+    })();
 
     // Add Trait
     document.getElementById('addTrait').addEventListener('click', function() {

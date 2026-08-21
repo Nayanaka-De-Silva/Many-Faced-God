@@ -82,7 +82,8 @@ class NpcResource extends JsonResource
             'actions'      => NpcActionResource::collection($npc->actions),
             'spellcasting' => $this->serializeSpellcasting($npc),
 
-            'notes'             => $npc->notes,
+            'notes'             => $npc->notesText(),
+            'noteCards'         => NpcNoteResource::collection($npc->noteCards),
             'personalityTraits' => $npc->personality_traits,
             'ideals'            => $npc->ideals,
             'bonds'             => $npc->bonds,
