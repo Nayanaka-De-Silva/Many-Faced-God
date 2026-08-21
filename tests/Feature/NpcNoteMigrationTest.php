@@ -44,6 +44,20 @@ class NpcNoteMigrationTest extends TestCase
         $this->assertEquals(0, $cards[0]->sort_order);
     }
 
+    public function test_move_notes_to_cards_is_idempotent_when_npc_already_has_cards(): void
+    {
+        // Simulates a single-step rollback + re-migrate of just this migration: the
+        // notes column is restored while npc_notes is left intact, so a second run
+        // must not duplicate the card.
+        $npcId = DB::table('npcs')->insertGetId($this->baseNpcRow(['alignment' => 'Lawful Good']));
+        DB::table('npcs')->where('id', $npcId)->update(['notes' => 'Scout the northern pass.']);
+
+        (new NpcNotesMigrator())->moveNotesToCards();
+        (new NpcNotesMigrator())->moveNotesToCards();
+
+        $this->assertEquals(1, DB::table('npc_notes')->where('npc_id', $npcId)->count());
+    }
+
     public function test_move_notes_to_cards_skips_npcs_with_blank_notes(): void
     {
         $npcId = DB::table('npcs')->insertGetId($this->baseNpcRow(['alignment' => 'Neutral']));

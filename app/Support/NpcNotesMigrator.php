@@ -14,6 +14,8 @@ class NpcNotesMigrator
     /**
      * Copy non-blank `npcs.notes` values into one "General Notes" card each,
      * then clear the column (the migration itself drops the column afterward).
+     * Skips NPCs that already have note cards, so a partial rollback + re-migrate
+     * of just this migration (leaving npc_notes intact) doesn't duplicate cards.
      */
     public function moveNotesToCards(): void
     {
@@ -22,6 +24,12 @@ class NpcNotesMigrator
             ->where('notes', '!=', '')
             ->orderBy('id')
             ->each(function (object $npc): void {
+                $alreadyMigrated = DB::table('npc_notes')->where('npc_id', $npc->id)->exists();
+
+                if ($alreadyMigrated) {
+                    return;
+                }
+
                 DB::table('npc_notes')->insert([
                     'npc_id'      => $npc->id,
                     'title'       => 'General Notes',

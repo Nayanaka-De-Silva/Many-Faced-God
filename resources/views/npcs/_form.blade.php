@@ -518,7 +518,10 @@
 
 @push('scripts')
 <script>
-    let noteCardIndex = {{ count($noteCards ?? []) }};
+    // Seeded from the highest existing key (not count()) because a validation-failure
+    // re-render can leave a gapped note_cards array (e.g. {0, 2} after removing index 1),
+    // and count() would collide with a still-present key.
+    let noteCardIndex = {{ empty($noteCards ?? []) ? 0 : max(array_keys($noteCards)) + 1 }};
     let traitIndex = {{ count($traits) }};
     let actionIndex = {{ count($actions) }};
     let senseIndex = {{ count($senses ?: [1]) }};
@@ -606,7 +609,11 @@
 
         container.addEventListener('dragstart', function(e) {
             dragging = e.target.closest('.note-card-row');
-            if (dragging) dragging.classList.add('dragging');
+            if (dragging) {
+                dragging.classList.add('dragging');
+                // Firefox requires dataTransfer to carry data before it will start the drag.
+                e.dataTransfer.setData('text/plain', '');
+            }
         });
 
         container.addEventListener('dragend', function() {
