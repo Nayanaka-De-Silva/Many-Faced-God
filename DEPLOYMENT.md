@@ -317,8 +317,11 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
 # Wait briefly for app -> db connectivity, then run migrations
 docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   exec -T app sh -lc '
+  db_host="$DB_HOST"; db_port="$DB_PORT"
+  [ -n "$db_host" ] || db_host=mfg-db
+  [ -n "$db_port" ] || db_port=3306
   mysql_probe() {
-    mysql --protocol=TCP -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USERNAME" -p"$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
+    mysql --protocol=TCP -h"$db_host" -P"$db_port" -u"$DB_USERNAME" -p"$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
   }
   i=0
   echo "Checking app -> db connectivity before running migrations..."
@@ -347,6 +350,8 @@ For image-based production deploys, avoid `docker compose restart` as the primar
 If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. In this project, keep a small follow-up readiness loop around migrations as well, because the DB health check only proves MySQL is responding inside the DB container itself. The extra loop confirms the app container can actually reach the database before `php artisan migrate --force` runs.
 
 Probe with the `mysql` client rather than `mysqladmin ping`. `mysqladmin ping` reports success on an access-denied response, so it proves only that *something* is listening on that port; a real authenticated query fails on the wrong host, wrong credentials, or a refused connection. (An earlier version of this probe used `php artisan db:show`, but its output formatter calls into the `intl` PHP extension, which this image does not install — it threw on every run regardless of database health. `--skip-ssl-verify-server-cert` is required because mysql 8.0 presents a self-signed certificate that the client refuses by default.)
+
+`DB_HOST`/`DB_PORT` fall back to `mfg-db`/`3306` in this loop if unset, mirroring what Laravel's own config does. Deployed `.env` files don't necessarily define `DB_PORT` — Laravel's config default covers it there — and an empty `$DB_PORT` collapses `-P""` to a bare `-P`, which then swallows the next argument (`-u...`) as its value instead of failing cleanly.
 
 ### Database hostname
 

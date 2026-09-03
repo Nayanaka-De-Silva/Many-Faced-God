@@ -60,8 +60,19 @@ steps:
           # cert; the client verifies it by default and refuses to connect
           # otherwise. Mirrors what "mysqladmin ping" was already doing
           # silently (its own log line: "ssl-verify-server-cert is disabled").
+          # DB_HOST/DB_PORT fall back the same way the pre-#74 script did --
+          # the deployed .env does not define DB_PORT (Laravel's own config
+          # default covers it there); an empty "$DB_PORT" collapses -P""
+          # to a bare -P, which then swallows the next argument as its value
+          # instead of failing cleanly. Assigned to plain shell variables
+          # (rather than inline ${DB_PORT:-3306}) so only the $$-escaping
+          # Woodpecker already handles correctly is needed here.
+          db_host="$$DB_HOST"
+          db_port="$$DB_PORT"
+          [ -n "$db_host" ] || db_host=mfg-db
+          [ -n "$db_port" ] || db_port=3306
           mysql_probe() {
-            mysql --protocol=TCP -h"$$DB_HOST" -P"$$DB_PORT" -u"$$DB_USERNAME" -p"$$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
+            mysql --protocol=TCP -h"$db_host" -P"$db_port" -u"$$DB_USERNAME" -p"$$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
           }
           i=0
           echo "Checking app -> db connectivity before running migrations..."
