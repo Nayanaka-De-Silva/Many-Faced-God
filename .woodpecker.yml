@@ -32,6 +32,10 @@ steps:
   # =========================
   # DEPLOY (Push to main/master only)
   # =========================
+  # Recreates the stack, waits for a real (authenticated) app -> db
+  # connection before migrating, then smoke-tests the deployed HTTP surface
+  # before declaring the deploy done — folded into one step rather than a
+  # separate stage, since it's one linear rollout with one failure point.
   - name: deploy
     image: docker:27
     privileged: true
@@ -39,20 +43,32 @@ steps:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/krystler/containers/many-faced-god:/deploy
     commands:
-      - cd /deploy
-      - docker compose -p many-faced-god -f ./docker-compose.prod.yml up --force-recreate -d --remove-orphans --wait --wait-timeout 120
+      # Copied while cwd is still the checkout (this step never cd's) so the
+      # relative path resolves; --project-directory below then points every
+      # docker compose invocation at the deployed .env and volumes.
+      - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
+      - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy up --force-recreate -d --remove-orphans --wait --wait-timeout 120
       - |-
-          docker compose -p many-faced-god -f ./docker-compose.prod.yml exec -T app sh -lc '
-          # Probe through the application database config rather than a
-          # hand-built mysqladmin invocation: it uses the real DB_HOST and
-          # credentials from .env, and unlike "mysqladmin ping" it fails on
-          # access-denied and on a host that is not our database. See #74.
+          docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy exec -T app sh -lc '
+          # Probe with the mysql client using the real DB_HOST/credentials
+          # from .env: unlike "mysqladmin ping" it fails on access-denied and
+          # on a host that is not our database (#74). Not `php artisan
+          # db:show` -- its output formatter needs the intl PHP extension,
+          # which this image does not install, so it always exits non-zero
+          # regardless of whether the database is actually reachable.
+          # --skip-ssl-verify-server-cert: mysql 8.0 presents a self-signed
+          # cert; the client verifies it by default and refuses to connect
+          # otherwise. Mirrors what "mysqladmin ping" was already doing
+          # silently (its own log line: "ssl-verify-server-cert is disabled").
+          mysql_probe() {
+            mysql --protocol=TCP -h"$$DB_HOST" -P"$$DB_PORT" -u"$$DB_USERNAME" -p"$$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
+          }
           i=0
           echo "Checking app -> db connectivity before running migrations..."
-          until php artisan db:show > /dev/null 2>&1; do
+          until mysql_probe > /dev/null 2>&1; do
             if [ "$i" -ge 10 ]; then
               echo "ERROR: database is not reachable from app after 30s" >&2
-              php artisan db:show >&2 || true
+              mysql_probe >&2 || true
               exit 1
             fi
             i=$((i+1))
@@ -61,32 +77,14 @@ steps:
           done
           php artisan migrate --force
           '
-      - docker image prune -f
-      - echo "Deployment completed successfully"
-    when:
-      - event: push
-        branch: master
-
-  # =========================
-  # SMOKE (Push to main/master only)
-  # =========================
-  # Gates the deploy on the running stack actually serving database-backed
-  # pages. The unit suite runs on sqlite and "migrate" only proves a single
-  # connection worked once, so neither would have caught issue #74.
-  - name: smoke
-    image: docker:27
-    privileged: true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /home/krystler/containers/many-faced-god:/deploy
-    commands:
-      - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
       - |-
-          if ! docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml exec -T app sh /tmp/deploy-smoke.sh; then
+          if ! docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy exec -T app sh /tmp/deploy-smoke.sh; then
             echo "=== smoke tests failed; container logs follow ===" >&2
-            docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml logs --tail 100 app webserver db >&2
+            docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy logs --tail 100 app webserver db >&2
             exit 1
           fi
+      - docker image prune -f
+      - echo "Deployment completed successfully"
     when:
       - event: push
         branch: master

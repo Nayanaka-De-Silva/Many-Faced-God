@@ -317,12 +317,15 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
 # Wait briefly for app -> db connectivity, then run migrations
 docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   exec -T app sh -lc '
+  mysql_probe() {
+    mysql --protocol=TCP -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USERNAME" -p"$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
+  }
   i=0
   echo "Checking app -> db connectivity before running migrations..."
-  until php artisan db:show > /dev/null 2>&1; do
+  until mysql_probe > /dev/null 2>&1; do
     if [ "$i" -ge 10 ]; then
       echo "ERROR: database is not reachable from app after 30s" >&2
-      php artisan db:show >&2 || true
+      mysql_probe >&2 || true
       exit 1
     fi
     i=$((i+1))
@@ -331,13 +334,19 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   done
   php artisan migrate --force
   '
+
+# Smoke-test the deployed stack before considering the rollout done
+docker compose -p many-faced-god -f ./docker-compose.prod.yml \
+  cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
+docker compose -p many-faced-god -f ./docker-compose.prod.yml \
+  exec -T app sh /tmp/deploy-smoke.sh
 ```
 
 For image-based production deploys, avoid `docker compose restart` as the primary rollout command. Restarting existing containers does not load newly built images, so it can leave the previous application version running even after a successful image build.
 
 If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. In this project, keep a small follow-up readiness loop around migrations as well, because the DB health check only proves MySQL is responding inside the DB container itself. The extra loop confirms the app container can actually reach the database before `php artisan migrate --force` runs.
 
-Probe with `php artisan db:show` rather than `mysqladmin ping`. `mysqladmin ping` reports success on an access-denied response, so it proves only that *something* is listening on that port; `db:show` uses the application's own connection settings and fails on the wrong host, wrong credentials, or a refused connection.
+Probe with the `mysql` client rather than `mysqladmin ping`. `mysqladmin ping` reports success on an access-denied response, so it proves only that *something* is listening on that port; a real authenticated query fails on the wrong host, wrong credentials, or a refused connection. (An earlier version of this probe used `php artisan db:show`, but its output formatter calls into the `intl` PHP extension, which this image does not install — it threw on every run regardless of database health. `--skip-ssl-verify-server-cert` is required because mysql 8.0 presents a self-signed certificate that the client refuses by default.)
 
 ### Database hostname
 
@@ -347,7 +356,7 @@ The app container also joins `netheril-integration` and `vivaldi-integration`, w
 
 ### Post-deploy smoke gate
 
-`scripts/deploy-smoke.sh` runs inside the app container after migrations and requests `/up`, `/npcs`, `/api/v1/npcs`, and an NPC detail page through nginx, ten times each, failing on any non-200. It is the only pipeline step that exercises MySQL — the test suite runs on sqlite, and `migrate` proves only that one connection worked once. Requests are repeated because an ambiguous hostname fails intermittently.
+`scripts/deploy-smoke.sh` runs inside the app container, as the last part of the deploy step, and requests `/up`, `/npcs`, `/api/v1/npcs`, and an NPC detail page through nginx, ten times each, failing on any non-200. It is the only thing in the deploy that exercises MySQL end-to-end — the test suite runs on sqlite, and `migrate` proves only that one connection worked once. Requests are repeated because an ambiguous hostname fails intermittently. It runs as part of `deploy` rather than a separate pipeline step, since it is not independently useful without a stack that was just brought up.
 
 `/up` is included because `AppServiceProvider` now listens for `DiagnosingHealth` and opens a PDO connection (`App\Listeners\VerifyDatabaseConnection`), so a green `/up` means the database is genuinely reachable.
 
