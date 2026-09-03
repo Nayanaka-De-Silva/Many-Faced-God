@@ -46,6 +46,7 @@ class Npc extends Model
         'proficiency_bonus',
         'folder_id',
         'is_template',
+        'vivaldi_vault_id',
     ];
 
     protected $casts = [
@@ -535,6 +536,24 @@ class Npc extends Model
                 ? "{$card->title}\n\n{$card->description}"
                 : $card->title;
         })->join("\n\n");
+    }
+
+    /**
+     * Determine whether this NPC has a Bank of Vivaldi loot vault attached.
+     */
+    public function hasLootVault(): bool
+    {
+        return filled($this->vivaldi_vault_id);
+    }
+
+    /**
+     * Stable reference handed to the Bank of Vivaldi so both systems can
+     * cross-link this NPC's loot vault. Single source of truth for the format —
+     * reused by the loot controller when linking and unlinking.
+     */
+    public function lootExternalRef(): string
+    {
+        return "many-faced-god:npc-{$this->id}";
     }
 
     /**

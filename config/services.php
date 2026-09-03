@@ -42,4 +42,11 @@ return [
         'timeout'  => env('NETHERIL_TIMEOUT') ?: 5,
     ],
 
+    'vivaldi' => [
+        // env()'s default only applies when the key is absent, not when it's present-but-empty
+        // (e.g. a fresh `cp .env.example .env` with a blank value) — guard with `?:` as well.
+        'base_url' => env('VIVALDI_BASE_URL') ?: 'http://bank-of-vivaldi:8080',
+        'timeout'  => env('VIVALDI_TIMEOUT') ?: 5,
+    ],
+
 ];

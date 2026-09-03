@@ -154,6 +154,31 @@ class NpcTest extends TestCase
         $this->assertFalse((new Npc())->hasCharacterNotes());
     }
 
+    public function test_has_loot_vault_reflects_the_vivaldi_vault_id(): void
+    {
+        $this->assertFalse((new Npc())->hasLootVault());
+
+        $npc = new Npc();
+        $npc->vivaldi_vault_id = '5b1e0e8a-0000-4000-8000-000000000000';
+
+        $this->assertTrue($npc->hasLootVault());
+    }
+
+    public function test_loot_external_ref_is_stable_and_id_scoped(): void
+    {
+        $npc = new Npc();
+        $npc->id = 42;
+
+        $this->assertEquals('many-faced-god:npc-42', $npc->lootExternalRef());
+    }
+
+    public function test_vivaldi_vault_id_is_mass_assignable(): void
+    {
+        $npc = new Npc(['vivaldi_vault_id' => '5b1e0e8a-0000-4000-8000-000000000000']);
+
+        $this->assertEquals('5b1e0e8a-0000-4000-8000-000000000000', $npc->vivaldi_vault_id);
+    }
+
     public function test_sense_categories_constant_has_expected_keys(): void
     {
         $this->assertArrayHasKey('ft', Npc::SENSE_CATEGORIES);
