@@ -68,7 +68,7 @@ APP_DEBUG=false             # NEVER set to true in production
 APP_URL=https://yourdomain.com   # Your actual domain
 
 # Database Configuration
-DB_HOST=db                  # Use 'db' for Docker Compose setup
+DB_HOST=mfg-db              # Compose network alias for the db service
 DB_PORT=3306
 DB_DATABASE=many_faced_god
 DB_USERNAME=mfg_user
@@ -171,7 +171,7 @@ Access the application:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DB_CONNECTION` | mysql | Database type |
-| `DB_HOST` | db | Database host (use 'db' for Docker) |
+| `DB_HOST` | mfg-db | Database host (the db service's network alias) |
 | `DB_PORT` | 3306 | Database port (internal) |
 | `DB_DATABASE` | many_faced_god | Database name |
 | `DB_USERNAME` | mfg_user | Database user |
@@ -319,9 +319,10 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
   exec -T app sh -lc '
   i=0
   echo "Checking app -> db connectivity before running migrations..."
-  until mysqladmin ping -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME}" -p"${DB_PASSWORD}" --silent; do
+  until php artisan db:show > /dev/null 2>&1; do
     if [ "$i" -ge 10 ]; then
       echo "ERROR: database is not reachable from app after 30s" >&2
+      php artisan db:show >&2 || true
       exit 1
     fi
     i=$((i+1))
@@ -334,7 +335,21 @@ docker compose -p many-faced-god -f ./docker-compose.prod.yml \
 
 For image-based production deploys, avoid `docker compose restart` as the primary rollout command. Restarting existing containers does not load newly built images, so it can leave the previous application version running even after a successful image build.
 
-If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. In this project, keep a small follow-up readiness loop around migrations as well, because the DB health check only proves MySQL is responding inside the DB container itself. The extra loop confirms the app container can actually reach `db:3306` before `php artisan migrate --force` runs.
+If you automate deployment through a CI/CD system such as Woodpecker, prefer `docker compose up --wait` when your Compose version supports it and your database service has a health check configured. In this project, keep a small follow-up readiness loop around migrations as well, because the DB health check only proves MySQL is responding inside the DB container itself. The extra loop confirms the app container can actually reach the database before `php artisan migrate --force` runs.
+
+Probe with `php artisan db:show` rather than `mysqladmin ping`. `mysqladmin ping` reports success on an access-denied response, so it proves only that *something* is listening on that port; `db:show` uses the application's own connection settings and fails on the wrong host, wrong credentials, or a refused connection.
+
+### Database hostname
+
+`DB_HOST` is `mfg-db`, a network alias declared on the `db` service in both compose files — not the bare Compose service name `db`.
+
+The app container also joins `netheril-integration` and `vivaldi-integration`, which are owned by other stacks. Docker's embedded DNS answers from every network a container has joined, so once one of those stacks shipped a service of its own named `db`, the name resolved to more than one address and connections failed intermittently with `SQLSTATE[HY000] [2002] Connection refused` (issue #74). Any new shared network makes generic service names unsafe; the alias keeps our database addressable by a name no other stack will claim.
+
+### Post-deploy smoke gate
+
+`scripts/deploy-smoke.sh` runs inside the app container after migrations and requests `/up`, `/npcs`, `/api/v1/npcs`, and an NPC detail page through nginx, ten times each, failing on any non-200. It is the only pipeline step that exercises MySQL — the test suite runs on sqlite, and `migrate` proves only that one connection worked once. Requests are repeated because an ambiguous hostname fails intermittently.
+
+`/up` is included because `AppServiceProvider` now listens for `DiagnosingHealth` and opens a PDO connection (`App\Listeners\VerifyDatabaseConnection`), so a green `/up` means the database is genuinely reachable.
 
 ### View Logs
 

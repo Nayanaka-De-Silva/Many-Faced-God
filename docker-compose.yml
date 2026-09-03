@@ -14,7 +14,8 @@ services:
       - netheril-integration
       - vivaldi-integration
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   webserver:
     image: nginx:alpine
@@ -44,7 +45,16 @@ services:
     volumes:
       - mfg-db-data:/var/lib/mysql
     networks:
-      - mfg-network
+      # Same alias as docker-compose.prod.yml so DB_HOST=mfg-db works in both.
+      # See the comment there for why the bare service name is not safe (#74).
+      mfg-network:
+        aliases:
+          - mfg-db
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 networks:
   mfg-network:

@@ -11,7 +11,8 @@ services:
       - netheril-integration
       - vivaldi-integration
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   webserver:
     build:
@@ -40,7 +41,14 @@ services:
     volumes:
       - many-faced-god-db-data:/var/lib/mysql
     networks:
-      - many-faced-god-network
+      # app also joins netheril-integration and vivaldi-integration, which are
+      # owned by other stacks. Docker's embedded DNS answers from every network a
+      # container has joined, so the bare service name "db" is only unique inside
+      # our own network — a "db" service in a foreign stack makes it resolve
+      # non-deterministically (issue #74). DB_HOST points at this alias instead.
+      many-faced-god-network:
+        aliases:
+          - mfg-db
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$${MYSQL_USER}\" -p\"$${MYSQL_PASSWORD}\" --silent"]
       interval: 2s
