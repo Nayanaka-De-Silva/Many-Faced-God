@@ -43,11 +43,13 @@ steps:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/krystler/containers/many-faced-god:/deploy
     commands:
-      # Copied while cwd is still the checkout (this step never cd's) so the
-      # relative path resolves; --project-directory below then points every
-      # docker compose invocation at the deployed .env and volumes.
-      - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
       - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy up --force-recreate -d --remove-orphans --wait --wait-timeout 120
+      # Must run after the recreate above -- --force-recreate replaces the app
+      # container, discarding anything copied into the previous one. Copied
+      # while cwd is still the checkout (this step never cd's) so the relative
+      # path resolves; --project-directory points every docker compose
+      # invocation at the deployed .env and volumes.
+      - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
       - |-
           docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy exec -T app sh -lc '
           # Probe with the mysql client using the real DB_HOST/credentials

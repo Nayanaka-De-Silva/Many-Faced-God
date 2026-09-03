@@ -37,6 +37,33 @@ class WoodpeckerDeployScriptTest extends TestCase
         );
     }
 
+    public function test_smoke_script_is_copied_after_the_container_recreate(): void
+    {
+        $commands = $this->findDeployCommands(Yaml::parseFile(dirname(__DIR__, 2).'/.woodpecker.yml'));
+
+        $recreateIndex = $this->findCommandIndex($commands, 'up --force-recreate');
+        $copyIndex = $this->findCommandIndex($commands, 'cp ./scripts/deploy-smoke.sh');
+
+        $this->assertGreaterThan(
+            $recreateIndex,
+            $copyIndex,
+            'deploy-smoke.sh must be copied into the app container after `up --force-recreate`, '
+            .'not before it -- --force-recreate replaces the container, discarding anything '
+            .'copied into the one it replaces.'
+        );
+    }
+
+    private function findCommandIndex(array $commands, string $needle): int
+    {
+        foreach ($commands as $index => $command) {
+            if (str_contains($command, $needle)) {
+                return $index;
+            }
+        }
+
+        $this->fail("Could not find a deploy command containing \"{$needle}\".");
+    }
+
     private function extractSingleQuotedProbeScript(): string
     {
         $config = Yaml::parseFile(dirname(__DIR__, 2).'/.woodpecker.yml');
