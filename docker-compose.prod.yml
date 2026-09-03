@@ -9,6 +9,7 @@ services:
     networks:
       - many-faced-god-network
       - netheril-integration
+      - vivaldi-integration
     depends_on:
       - db
 
@@ -50,6 +51,8 @@ networks:
   many-faced-god-network:
     external: true
   netheril-integration:
+    external: true
+  vivaldi-integration:
     external: true
 
 volumes:

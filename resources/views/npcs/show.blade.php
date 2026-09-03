@@ -243,6 +243,10 @@
                             @include('npcs.partials.action', ['action' => $action])
                         @endforeach
                     @endif
+
+                    <hr class="dnd-divider">
+
+                    @include('npcs.partials._loot', ['npc' => $npc])
                 </div>
             </div>
         </div>

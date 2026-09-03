@@ -12,6 +12,7 @@ services:
     networks:
       - mfg-network
       - netheril-integration
+      - vivaldi-integration
     depends_on:
       - db
 
@@ -49,6 +50,8 @@ networks:
   mfg-network:
     driver: bridge
   netheril-integration:
+    external: true
+  vivaldi-integration:
     external: true
 
 volumes:
