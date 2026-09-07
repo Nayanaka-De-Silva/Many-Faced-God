@@ -400,7 +400,7 @@ For issues or questions about deployment, refer to:
 
 ## Library of Netheril Integration
 
-Many Faced God proxies spell data from [library-of-netheril](https://gitea.local/your-org/library-of-netheril)
+Many Faced God proxies spell data from [Library of Netheril](https://github.com/Nayanaka-De-Silva/Library-Of-Netheril)
 via a shared Docker network. The app container resolves the service by its Docker Compose service name
 (`library-of-netheril`) on internal port **3000**.
 

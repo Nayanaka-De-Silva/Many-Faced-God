@@ -41,7 +41,7 @@ steps:
     privileged: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /home/krystler/containers/many-faced-god:/deploy
+      - /opt/stacks/many-faced-god:/deploy
     commands:
       - docker compose -p many-faced-god -f /deploy/docker-compose.prod.yml --project-directory /deploy up --force-recreate -d --remove-orphans --wait --wait-timeout 120
       # Must run after the recreate above -- --force-recreate replaces the app

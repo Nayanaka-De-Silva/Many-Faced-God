@@ -2,7 +2,13 @@
 
 **A dungeon mastering tool to help you take on the many faces of your world.**
 
-Many Faced God is a web-based NPC (Non-Player Character) generator and manager for Dungeons & Dragons 5th Edition campaigns. Create, view, edit, delete, and organize NPCs with persistent storage.
+Many Faced God is a web-based NPC (Non-Player Character) generator and manager for Dungeons & Dragons 5th Edition campaigns. Create, view, edit, delete, and organize NPCs with persistent storage — and serve their statblocks to other tools over a versioned read-only API.
+
+> Part of a suite of self-hosted tabletop tools, each built in a different stack:
+> **Many Faced God** (NPCs · Laravel/PHP) ·
+> [Library of Netheril](https://github.com/Nayanaka-De-Silva/Library-Of-Netheril) (spells · TypeScript) ·
+> [Bank of Vivaldi](https://github.com/Nayanaka-De-Silva/Bank-Of-Vivaldi) (inventory · Go) ·
+> [Manticore Arena](https://github.com/Nayanaka-De-Silva/Manticore-Arena) (combat tracker · TypeScript).
 
 ## Features
 
@@ -223,4 +229,9 @@ Quick summary:
 
 ## License
 
-This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+This project's source is original and licensed under the [MIT License](LICENSE).
+
+Dungeons & Dragons is a trademark of Wizards of the Coast. This is a personal,
+non-commercial tool and is not affiliated with or endorsed by Wizards of the Coast.
+No rules text or stat blocks from Wizards of the Coast products are committed to
+this repository — NPC content is generated procedurally or entered by the operator.
