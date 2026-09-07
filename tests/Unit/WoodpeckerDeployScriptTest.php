@@ -6,51 +6,72 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Guards against a class of bug that broke three deploys in a row while
- * hardening the deploy step for issue #74: the readiness probe is written as
- * a single-quoted argument to `sh -lc` inside a Woodpecker command string
- * (`... exec -T app sh -lc '<script>'`). That whole string is itself parsed
- * by the *outer* shell running the pipeline step, so a literal apostrophe
- * anywhere inside it -- including inside a comment -- closes the quoting
- * early and corrupts everything after it. This exact mistake ("Laravel's
- * own config" in a comment) passed local testing because extracting the
- * script to a file and running it directly never exercises the outer
- * single-quote wrapping at all.
+ * Guards the deploy step against a class of bug that broke several deploys in a
+ * row (issues #74, #77, #78): shell logic written inline in .woodpecker.yml as a
+ * single-quoted argument to `sh -lc` is parsed twice -- once by Woodpecker's own
+ * script generator, once by the outer pipeline shell -- and a stray quote
+ * anywhere in it, even in a comment, corrupts everything after it.
+ *
+ * The deploy step now runs every non-trivial shell block from a real script file
+ * inside the container (scripts/deploy-migrate.sh, scripts/deploy-smoke.sh) and
+ * keeps every .woodpecker.yml command on a single line. These tests assert that
+ * structure holds.
  */
 class WoodpeckerDeployScriptTest extends TestCase
 {
-    public function test_deploy_probe_script_has_no_unescaped_apostrophe(): void
+    public function test_deploy_step_has_no_inline_sh_lc(): void
     {
-        $script = $this->extractSingleQuotedProbeScript();
-
-        $this->assertStringNotContainsString(
-            "'",
-            $script,
-            "The deploy step's `sh -lc '...'` body must not contain a literal apostrophe "
-            .'(straight or curly), including in comments -- it terminates the single-quoted '
-            .'string early in the outer shell and corrupts everything after it.'
-        );
-        $this->assertStringNotContainsString(
-            "\u{2019}",
-            $script,
-            'The same applies to a curly apostrophe (\u{2019}).'
-        );
+        foreach ($this->deployCommands() as $command) {
+            $this->assertStringNotContainsString(
+                'sh -lc',
+                $command,
+                'Deploy commands must not embed inline shell via `sh -lc` -- put the '
+                .'logic in a script file under scripts/ and run it with `sh /tmp/<file>`.'
+            );
+        }
     }
 
-    public function test_smoke_script_is_copied_after_the_container_recreate(): void
+    public function test_deploy_commands_are_each_a_single_line(): void
     {
-        $commands = $this->findDeployCommands(Yaml::parseFile(dirname(__DIR__, 2).'/.woodpecker.yml'));
+        foreach ($this->deployCommands() as $command) {
+            $this->assertStringNotContainsString(
+                "\n",
+                $command,
+                "Every deploy command must be a single line so Woodpecker's script "
+                .'generator and the pipeline shell agree on where it ends.'
+            );
+        }
+    }
+
+    public function test_migrate_and_smoke_scripts_run_after_the_container_recreate(): void
+    {
+        $commands = $this->deployCommands();
 
         $recreateIndex = $this->findCommandIndex($commands, 'up --force-recreate');
-        $copyIndex = $this->findCommandIndex($commands, 'cp ./scripts/deploy-smoke.sh');
 
-        $this->assertGreaterThan(
-            $recreateIndex,
-            $copyIndex,
-            'deploy-smoke.sh must be copied into the app container after `up --force-recreate`, '
-            .'not before it -- --force-recreate replaces the container, discarding anything '
-            .'copied into the one it replaces.'
-        );
+        foreach (['deploy-migrate.sh', 'deploy-smoke.sh'] as $script) {
+            $copyIndex = $this->findCommandIndex($commands, "cp ./scripts/{$script}");
+            $execIndex = $this->findCommandIndex($commands, "sh /tmp/{$script}");
+
+            $this->assertGreaterThan(
+                $recreateIndex,
+                $copyIndex,
+                "{$script} must be copied into the app container after `up --force-recreate` "
+                .'-- --force-recreate replaces the container, discarding anything copied before.'
+            );
+            $this->assertGreaterThan(
+                $copyIndex,
+                $execIndex,
+                "{$script} must be executed after it is copied in."
+            );
+        }
+    }
+
+    public function test_referenced_deploy_scripts_exist(): void
+    {
+        foreach (['deploy-migrate.sh', 'deploy-smoke.sh'] as $script) {
+            $this->assertFileExists(dirname(__DIR__, 2)."/scripts/{$script}");
+        }
     }
 
     private function findCommandIndex(array $commands, string $needle): int
@@ -64,24 +85,10 @@ class WoodpeckerDeployScriptTest extends TestCase
         $this->fail("Could not find a deploy command containing \"{$needle}\".");
     }
 
-    private function extractSingleQuotedProbeScript(): string
+    private function deployCommands(): array
     {
         $config = Yaml::parseFile(dirname(__DIR__, 2).'/.woodpecker.yml');
-        $commands = $this->findDeployCommands($config);
 
-        foreach ($commands as $command) {
-            if (str_contains($command, "sh -lc '")) {
-                $start = strpos($command, "sh -lc '") + strlen("sh -lc '");
-
-                return substr($command, $start, strrpos($command, "'") - $start);
-            }
-        }
-
-        $this->fail("Could not find the `sh -lc '...'` probe command in the deploy step.");
-    }
-
-    private function findDeployCommands(array $config): array
-    {
         foreach ($config['steps'] as $step) {
             if ($step['name'] === 'deploy') {
                 return $step['commands'];

@@ -50,6 +50,9 @@ steps:
       # Assemble a throwaway deploy dir in the CI workspace (discarded when the
       # pipeline ends). --project-directory points every compose call at it for
       # the deployed .env; the db lives in a Docker named volume, untouched.
+      # Every command here is a single line -- the readiness probe and smoke
+      # gate are real script files run inside the container, never inline
+      # `sh -lc '...'` (issues #74, #77, #78).
       - test -n "$${PROD_DOTENV}" || { echo "prod_dotenv secret missing/empty - set it in Woodpecker repo settings" >&2; exit 1; }
       - mkdir -p deploy
       - cp docker-compose.prod.yml deploy/docker-compose.prod.yml
@@ -58,58 +61,12 @@ steps:
       # integrates with); whichever stack comes up first owns creating them.
       - for net in many-faced-god-network netheril-integration vivaldi-integration; do docker network inspect "$$net" >/dev/null 2>&1 || docker network create "$$net"; done
       - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy up --force-recreate -d --remove-orphans --wait --wait-timeout 120
-      # Must run after the recreate above -- --force-recreate replaces the app
-      # container, discarding anything copied into the previous one. Copied
-      # while cwd is still the checkout (this step never cd's) so the relative
-      # path resolves; --project-directory points every docker compose
-      # invocation at the deployed .env and volumes.
+      # Copy the scripts AFTER the recreate above -- --force-recreate replaces
+      # the app container, discarding anything copied into the previous one.
+      - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy cp ./scripts/deploy-migrate.sh app:/tmp/deploy-migrate.sh
+      - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy exec -T app sh /tmp/deploy-migrate.sh
       - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy cp ./scripts/deploy-smoke.sh app:/tmp/deploy-smoke.sh
-      - |-
-          docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy exec -T app sh -lc '
-          # Probe with the mysql client using the real DB_HOST/credentials
-          # from .env: unlike "mysqladmin ping" it fails on access-denied and
-          # on a host that is not our database (#74). Not `php artisan
-          # db:show` -- its output formatter needs the intl PHP extension,
-          # which this image does not install, so it always exits non-zero
-          # regardless of whether the database is actually reachable.
-          # --skip-ssl-verify-server-cert: mysql 8.0 presents a self-signed
-          # cert; the client verifies it by default and refuses to connect
-          # otherwise. Mirrors what "mysqladmin ping" was already doing
-          # silently (its own log line: "ssl-verify-server-cert is disabled").
-          # DB_HOST/DB_PORT fall back the same way the pre-#74 script did --
-          # the deployed .env does not define DB_PORT (the Laravel config
-          # default covers it there); an empty "$DB_PORT" collapses -P""
-          # to a bare -P, which then swallows the next argument as its value
-          # instead of failing cleanly. Assigned to plain shell variables
-          # (rather than inline ${DB_PORT:-3306}) so only the $$-escaping
-          # Woodpecker already handles correctly is needed here.
-          db_host="$$DB_HOST"
-          db_port="$$DB_PORT"
-          [ -n "$db_host" ] || db_host=mfg-db
-          [ -n "$db_port" ] || db_port=3306
-          mysql_probe() {
-            mysql --protocol=TCP -h"$db_host" -P"$db_port" -u"$$DB_USERNAME" -p"$$DB_PASSWORD" --skip-ssl-verify-server-cert -e "SELECT 1"
-          }
-          i=0
-          echo "Checking app -> db connectivity before running migrations..."
-          until mysql_probe > /dev/null 2>&1; do
-            if [ "$i" -ge 10 ]; then
-              echo "ERROR: database is not reachable from app after 30s" >&2
-              mysql_probe >&2 || true
-              exit 1
-            fi
-            i=$((i+1))
-            echo "Waiting for app -> db readiness ($i/10)..."
-            sleep 3
-          done
-          php artisan migrate --force
-          '
-      - |-
-          if ! docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy exec -T app sh /tmp/deploy-smoke.sh; then
-            echo "=== smoke tests failed; container logs follow ===" >&2
-            docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy logs --tail 100 app webserver db >&2
-            exit 1
-          fi
+      - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy exec -T app sh /tmp/deploy-smoke.sh || { docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy logs --tail 100 app webserver db >&2; exit 1; }
       - docker image prune -f
       - echo "Deployment completed successfully"
     when:
