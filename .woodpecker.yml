@@ -21,9 +21,13 @@ steps:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
+      # Two images: the php-fpm app (root Dockerfile) and the nginx front
+      # (docker/nginx/Dockerfile). The nginx build context is ./docker/nginx,
+      # NOT the repo root -- building it from "." produced another copy of the
+      # app image, so the webserver container ran php-fpm and nothing listened
+      # on :80 (deploy #175).
       - docker build -t many-faced-god-app:latest .
-      - echo "Building nginx images"
-      - docker build -t many-faced-god-nginx:latest .
+      - docker build -t many-faced-god-nginx:latest ./docker/nginx
       - echo "Build completed successfully"
     when:
       - event: push

@@ -15,14 +15,13 @@ services:
         condition: service_healthy
 
   webserver:
-    build:
-      context: ./docker/nginx
+    # Built by the CI build-image step from docker/nginx/Dockerfile (the vhost
+    # is baked in). No build context here: the deployed stack only ever has the
+    # compose file and .env alongside it, not the repo tree.
     image: many-faced-god-nginx:latest
     restart: unless-stopped
     ports:
       - "8765:80"
-    volumes:
-      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
     networks:
       - many-faced-god-network
     depends_on:
