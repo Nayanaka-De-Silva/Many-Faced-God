@@ -58,6 +58,13 @@ steps:
       - mkdir -p deploy
       - cp docker-compose.prod.yml deploy/docker-compose.prod.yml
       - printf '%s\n' "$${PROD_DOTENV}" > deploy/.env
+      # The compose file joins shared external networks (one per sibling stack it
+      # integrates with). Whichever stack comes up first owns creating them, so
+      # ensure they exist here rather than depending on manual host setup.
+      - |-
+          for net in many-faced-god-network netheril-integration vivaldi-integration; do
+            docker network inspect "$$net" >/dev/null 2>&1 || docker network create "$$net"
+          done
       - docker compose -p many-faced-god -f deploy/docker-compose.prod.yml --project-directory deploy up --force-recreate -d --remove-orphans --wait --wait-timeout 120
       # Must run after the recreate above -- --force-recreate replaces the app
       # container, discarding anything copied into the previous one. Copied
